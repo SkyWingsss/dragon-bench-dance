@@ -27,11 +27,11 @@ export const PLAYER_SLOT_COEFFICIENT: Record<PlayerSlot, number> = {
 };
 
 export const GRAVITY_SCALE = 42;
-export const OFFSET_DAMPING = 3.8;
-export const CHAIN_PULL = 8.4;
-export const BASE_BREAK_THRESHOLD = 24;
-export const BREAK_HOLD_MS = 56;
-export const CONTROL_FORCE_GAIN = 210;
+export const OFFSET_DAMPING = 4.8;
+export const CHAIN_PULL = 11.4;
+export const BASE_BREAK_THRESHOLD = 30;
+export const BREAK_HOLD_MS = 64;
+export const CONTROL_FORCE_GAIN = 255;
 export const MAX_ABS_OFFSET = 120;
 export const DIFFICULTY_TIER: DifficultyTier = "hardcore";
 

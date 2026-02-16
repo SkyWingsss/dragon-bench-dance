@@ -68,6 +68,8 @@ const ROAD_SAMPLE_STEP = 40;
 const ROAD_SAMPLES_BEHIND = 10;
 const ROAD_SAMPLES_AHEAD = 26;
 const MAP_ROUGHNESS_ATTEMPTS = 8;
+const ONRAMP_SEC = 3.4;
+const TURBULENCE_ONRAMP_SEC = 4.1;
 const LEVEL_ROUGHNESS_FLOOR: Record<LevelId, number> = {
   1: 0.00175,
   2: 0.0022,
@@ -76,6 +78,10 @@ const LEVEL_ROUGHNESS_FLOOR: Record<LevelId, number> = {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
 }
 
 function makeEmptySegments(): DragonSegmentFrame[] {
@@ -218,6 +224,8 @@ export class DragonPhysicsEngine {
 
   private mapSeedNonce: number;
 
+  private runTimeSec: number;
+
   constructor(options: EngineOptions = {}) {
     this.level = options.initialLevel ?? 1;
     this.slot = options.defaultSlot ?? 1;
@@ -245,6 +253,7 @@ export class DragonPhysicsEngine {
     this.maxCombo = 0;
     this.failureSpeed = 0;
     this.emittedResultKey = null;
+    this.runTimeSec = 0;
     this.snapshot.mapTheme = this.mapTheme;
     this.snapshot.mapSeed = this.mapSeed;
     this.updateSegmentsAndSnapshot("ready");
@@ -382,6 +391,7 @@ export class DragonPhysicsEngine {
     this.statusTimerMs = 0;
     this.failureSpeed = 0;
     this.emittedResultKey = null;
+    this.runTimeSec = 0;
 
     if (options.resetScore) {
       this.score = 0;
@@ -419,8 +429,26 @@ export class DragonPhysicsEngine {
     this.inputForce = 0;
     this.accumulatorSec = 0;
     this.statusTimerMs = 0;
+    this.runTimeSec = 0;
 
     this.updateSegmentsAndSnapshot("running");
+  }
+
+  private getPressureRamp(): number {
+    return clamp(this.runTimeSec / ONRAMP_SEC, 0, 1);
+  }
+
+  private getTurbulenceRamp(): number {
+    return clamp((this.runTimeSec - 0.6) / TURBULENCE_ONRAMP_SEC, 0, 1);
+  }
+
+  private getBreakAssistScale(): number {
+    // Short learning window at run start, then return to hardcore baseline.
+    return lerp(1.48, 1, this.getPressureRamp());
+  }
+
+  private getBreakHoldRequirementMs(): number {
+    return lerp(BREAK_HOLD_MS + 42, BREAK_HOLD_MS, this.getPressureRamp());
   }
 
   private emitRunEnd(result: RunEndResult, key: string): void {
@@ -440,6 +468,9 @@ export class DragonPhysicsEngine {
     const config = LEVEL_CONFIG[this.level];
     const playerIndex = PLAYER_SLOT_TO_SEGMENT_INDEX[this.slot];
     const slotCoefficient = PLAYER_SLOT_COEFFICIENT[this.slot];
+    this.runTimeSec += dt;
+    const pressureRamp = this.getPressureRamp();
+    const turbulenceRamp = this.getTurbulenceRamp();
 
     this.speed = Math.min(config.maxSpeed, this.speed + config.accel * dt);
     this.distance += this.speed * dt;
@@ -462,17 +493,17 @@ export class DragonPhysicsEngine {
       const outwardDirection = Math.sign(sample.curvature);
       const pressureMultiplier =
         index === playerIndex
-          ? 1.9 + (this.speed / Math.max(config.maxSpeed, 1)) * 0.45
+          ? lerp(0.92, 1.9 + (this.speed / Math.max(config.maxSpeed, 1)) * 0.45, pressureRamp)
           : 1;
 
       let acceleration = outwardDirection * centrifugalMagnitude * pressureMultiplier;
 
       if (index === playerIndex) {
-        const turbulence =
+        const turbulenceBase =
           Math.sin(this.distance * (0.017 + this.level * 0.0028) + index * 0.92) *
           this.speed *
           (0.18 + this.level * 0.03);
-        acceleration += turbulence;
+        acceleration += turbulenceBase * turbulenceRamp;
         acceleration += this.inputForce;
       }
 
@@ -495,7 +526,7 @@ export class DragonPhysicsEngine {
     this.inputForce *= Math.exp(-dt * 11);
 
     const playerOffset = this.offsets[playerIndex];
-    const breakThreshold = BASE_BREAK_THRESHOLD / slotCoefficient;
+    const breakThreshold = (BASE_BREAK_THRESHOLD / slotCoefficient) * this.getBreakAssistScale();
     const risk = Math.abs(playerOffset) / breakThreshold;
 
     if (risk < COMBO_SAFE_RISK) {
@@ -521,7 +552,7 @@ export class DragonPhysicsEngine {
       this.breakHoldMs = 0;
     }
 
-    if (this.breakHoldMs >= BREAK_HOLD_MS) {
+    if (this.breakHoldMs >= this.getBreakHoldRequirementMs()) {
       this.failureSpeed = this.speed;
       this.updateSegmentsAndSnapshot("gameover");
       this.emitRunEnd({ level: this.level, score: Math.floor(this.score), cleared: false }, "gameover");
@@ -540,7 +571,7 @@ export class DragonPhysicsEngine {
   private updateSegmentsAndSnapshot(nextStatus: GameStatus): void {
     const playerIndex = PLAYER_SLOT_TO_SEGMENT_INDEX[this.slot];
     const slotCoefficient = PLAYER_SLOT_COEFFICIENT[this.slot];
-    const breakThreshold = BASE_BREAK_THRESHOLD / slotCoefficient;
+    const breakThreshold = (BASE_BREAK_THRESHOLD / slotCoefficient) * this.getBreakAssistScale();
 
     const segments: DragonSegmentFrame[] = [];
 

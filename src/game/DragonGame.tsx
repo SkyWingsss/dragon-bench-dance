@@ -253,12 +253,13 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
   const nowMs = typeof performance !== "undefined" ? performance.now() : Date.now();
   const idleMs =
     lastDragAtMsRef.current <= 0 ? Number.POSITIVE_INFINITY : nowMs - lastDragAtMsRef.current;
+  const runElapsedSec = snapshot.speed > 0 ? snapshot.distance / snapshot.speed : 0;
   const showDragCoach =
     overlayState === "none" &&
     snapshot.status === "running" &&
     isPortrait &&
     !showSlotPicker &&
-    (!hasDraggedRef.current || idleMs > 1800 || snapshot.risk >= 0.5);
+    (runElapsedSec < 12 || !hasDraggedRef.current || idleMs > 1800 || snapshot.risk >= 0.5);
 
   return (
     <main className="dragon-game-root">

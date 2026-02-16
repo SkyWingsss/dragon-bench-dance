@@ -32,6 +32,9 @@ export function DragCoach(props: DragCoachProps): JSX.Element | null {
   const directionLabel = direction === "left" ? "向左拖" : "向右拖";
 
   let detail = "按住屏幕任意位置左右拖动，全屏都可拖。";
+  if (props.hasDragged && !strongWarning && props.idleMs <= 2200) {
+    detail = "保持手指不离屏，看到偏移就反向轻拉，连续小修正最稳。";
+  }
   if (props.hasDragged && props.idleMs > 2200) {
     detail = "不要停手太久，持续小幅反向修正更稳。";
   }
