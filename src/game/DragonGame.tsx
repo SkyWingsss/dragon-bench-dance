@@ -1,0 +1,294 @@
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
+import { createDragonRenderer, type DragonRenderer } from "./renderer";
+import { useDragonPhysics } from "./useDragonPhysics";
+import type { LevelId, OverlayState, PlayerSlot, RunEndResult } from "./types";
+import { HUDTopBar } from "../ui/HUDTopBar";
+import { SlotPicker } from "../ui/SlotPicker";
+import { OnboardingHint } from "../ui/OnboardingHint";
+import { GameOverPanel } from "../ui/GameOverPanel";
+import { RotateLockMask } from "../ui/RotateLockMask";
+import { useOnboardingFlag } from "../ui/useOnboardingFlag";
+
+export interface DragonGameProps {
+  initialLevel?: 1 | 2 | 3;
+  defaultSlot?: 1 | 2 | 3 | 4 | 5;
+  onRunEnd?: (result: { level: 1 | 2 | 3; score: number; cleared: boolean }) => void;
+}
+
+const levels: LevelId[] = [1, 2, 3];
+
+function detectPortrait(): boolean {
+  if (typeof window === "undefined") {
+    return true;
+  }
+  return window.innerHeight >= window.innerWidth;
+}
+
+export function DragonGame(props: DragonGameProps): JSX.Element {
+  const initialLevel = props.initialLevel ?? 1;
+  const initialSlot = props.defaultSlot ?? 1;
+
+  const [selectedSlot, setSelectedSlot] = useState<PlayerSlot>(initialSlot);
+  const [selectedLevel, setSelectedLevel] = useState<LevelId>(initialLevel);
+  const [showSlotPicker, setShowSlotPicker] = useState<boolean>(true);
+  const [isPortrait, setIsPortrait] = useState<boolean>(() => detectPortrait());
+
+  const onRunEndRef = useRef<DragonGameProps["onRunEnd"]>(props.onRunEnd);
+  onRunEndRef.current = props.onRunEnd;
+
+  const { hasSeenOnboarding, markOnboardingSeen } = useOnboardingFlag();
+  const showOnboarding = showSlotPicker && !hasSeenOnboarding;
+
+  const { snapshot, onDrag, startLevel, restartLevel, tick, setPaused } = useDragonPhysics({
+    initialLevel,
+    defaultSlot: initialSlot,
+    onRunEnd: (result: RunEndResult) => {
+      onRunEndRef.current?.(result);
+    },
+  });
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const rendererRef = useRef<DragonRenderer | null>(null);
+  const snapshotRef = useRef(snapshot);
+  const renderClockRef = useRef<number | null>(null);
+  const dragActiveRef = useRef(false);
+  const dragXRef = useRef(0);
+
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
+
+  useEffect(() => {
+    const listener = (): void => {
+      setIsPortrait(detectPortrait());
+    };
+
+    listener();
+    window.addEventListener("resize", listener);
+    window.addEventListener("orientationchange", listener);
+
+    return () => {
+      window.removeEventListener("resize", listener);
+      window.removeEventListener("orientationchange", listener);
+    };
+  }, []);
+
+  useEffect(() => {
+    setPaused(!isPortrait || showSlotPicker);
+  }, [isPortrait, setPaused, showSlotPicker]);
+
+  useEffect(() => {
+    let raf = 0;
+
+    const loop = (now: number): void => {
+      tick(now);
+      raf = window.requestAnimationFrame(loop);
+    };
+
+    raf = window.requestAnimationFrame(loop);
+
+    return () => {
+      window.cancelAnimationFrame(raf);
+    };
+  }, [tick]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      return;
+    }
+
+    const renderer = createDragonRenderer(canvas);
+    rendererRef.current = renderer;
+
+    const resize = (): void => {
+      const rect = canvas.getBoundingClientRect();
+      renderer.resize(rect.width, rect.height, window.devicePixelRatio || 1);
+      renderer.render(snapshotRef.current, 1 / 60);
+    };
+
+    resize();
+
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(resize);
+      observer.observe(canvas);
+    }
+
+    return () => {
+      observer?.disconnect();
+      renderer.dispose();
+      rendererRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const renderer = rendererRef.current;
+    if (!renderer) {
+      return;
+    }
+
+    const now = performance.now();
+    if (renderClockRef.current === null) {
+      renderClockRef.current = now;
+    }
+
+    const dt = Math.min(0.05, (now - renderClockRef.current) / 1000);
+    renderClockRef.current = now;
+
+    renderer.render(snapshot, dt);
+  }, [snapshot]);
+
+  useEffect(() => {
+    setSelectedLevel(snapshot.level);
+  }, [snapshot.level]);
+
+  const overlayState = useMemo<OverlayState>(() => {
+    if (!isPortrait) {
+      return "rotate-lock";
+    }
+    if (snapshot.status === "gameover") {
+      return "gameover";
+    }
+    if (snapshot.status === "victory") {
+      return "victory";
+    }
+    if (showOnboarding) {
+      return "onboarding";
+    }
+    if (snapshot.status === "level-clear") {
+      return "level-clear";
+    }
+    return "none";
+  }, [isPortrait, showOnboarding, snapshot.status]);
+
+  const handleStart = (): void => {
+    setShowSlotPicker(false);
+    startLevel(selectedLevel, selectedSlot);
+  };
+
+  const handleRetry = (): void => {
+    setShowSlotPicker(false);
+    restartLevel();
+  };
+
+  const handleBack = (): void => {
+    setShowSlotPicker(true);
+  };
+
+  const handlePointerDown = (event: ReactPointerEvent<HTMLElement>): void => {
+    dragActiveRef.current = true;
+    dragXRef.current = event.clientX;
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const handlePointerMove = (event: ReactPointerEvent<HTMLElement>): void => {
+    if (!dragActiveRef.current) {
+      return;
+    }
+
+    const deltaX = event.clientX - dragXRef.current;
+    dragXRef.current = event.clientX;
+
+    if (snapshot.status === "running" && isPortrait) {
+      onDrag(deltaX);
+    }
+  };
+
+  const releaseDrag = (): void => {
+    dragActiveRef.current = false;
+  };
+
+  const progress = Math.min(1, snapshot.targetDistance > 0 ? snapshot.distance / snapshot.targetDistance : 0);
+
+  return (
+    <main className="dragon-game-root">
+      <div className="game-stage">
+        <HUDTopBar
+          level={snapshot.level}
+          score={snapshot.score}
+          speed={snapshot.speed}
+          combo={snapshot.combo}
+          progress={progress}
+          risk={snapshot.risk}
+          frenzy={snapshot.frenzy}
+        />
+
+        <canvas ref={canvasRef} className="dragon-canvas" aria-label="独龙狂舞游戏画布" />
+
+        {overlayState === "level-clear" && (
+          <div className="level-clear-toast" role="status">
+            第{snapshot.level}关完成，继续狂舞
+          </div>
+        )}
+
+        <section
+          className="control-zone"
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={releaseDrag}
+          onPointerCancel={releaseDrag}
+          onPointerLeave={releaseDrag}
+        >
+          <p>向甩出的反方向拖拽修正离心力</p>
+        </section>
+
+        {showSlotPicker && isPortrait && (
+          <div className="slot-picker-wrap">
+            <section className="overlay-card level-picker">
+              <h3>选择关卡</h3>
+              <div className="level-grid">
+                {levels.map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    className={`slot-button ${selectedLevel === level ? "active" : ""}`}
+                    onClick={() => setSelectedLevel(level)}
+                  >
+                    第{level}关
+                  </button>
+                ))}
+              </div>
+            </section>
+            <SlotPicker selected={selectedSlot} onSelect={setSelectedSlot} onStart={handleStart} />
+          </div>
+        )}
+
+        <OnboardingHint
+          visible={showOnboarding && isPortrait}
+          onClose={(): void => {
+            markOnboardingSeen();
+          }}
+        />
+
+        <GameOverPanel
+          visible={overlayState === "gameover" && !showSlotPicker}
+          score={snapshot.score}
+          maxCombo={snapshot.maxCombo}
+          failSpeed={snapshot.failureSpeed}
+          breakDelta={Math.abs(snapshot.playerOffsetPx) - snapshot.breakThresholdPx}
+          onRetry={handleRetry}
+          onBack={handleBack}
+        />
+
+        {overlayState === "victory" && !showSlotPicker && (
+          <section className="overlay-card victory-panel" role="dialog" aria-label="通关">
+            <h2>三关通关</h2>
+            <p>总分 {snapshot.score.toLocaleString("zh-CN")}</p>
+            <button type="button" className="primary-button" onClick={handleBack}>
+              返回关卡选择
+            </button>
+          </section>
+        )}
+
+        <RotateLockMask visible={overlayState === "rotate-lock"} />
+      </div>
+    </main>
+  );
+}

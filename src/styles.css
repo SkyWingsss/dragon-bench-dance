@@ -1,0 +1,351 @@
+@import url("https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;600;700;900&family=ZCOOL+QingKe+HuangYou&display=swap");
+
+:root {
+  color-scheme: only light;
+  font-family: "Noto Sans SC", "PingFang SC", sans-serif;
+  background: #f8eed8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  touch-action: none;
+  user-select: none;
+  background: linear-gradient(180deg, #f8eed8 0%, #f2d9a6 100%);
+}
+
+.dragon-game-root {
+  width: 100%;
+  height: 100%;
+}
+
+.game-stage {
+  position: relative;
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.dragon-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+.hud-top-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 10px;
+  padding: calc(env(safe-area-inset-top) + 10px) 12px 10px;
+  border-bottom: 1px solid rgba(232, 183, 115, 0.3);
+  background: linear-gradient(180deg, rgba(43, 23, 15, 0.55), rgba(43, 23, 15, 0.42));
+  color: #fdf2d8;
+  animation: hudEnter 220ms ease-out;
+}
+
+@keyframes hudEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(-14px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hud-block {
+  min-width: 0;
+}
+
+.hud-left {
+  justify-self: start;
+  width: 100%;
+}
+
+.hud-mid {
+  justify-self: center;
+  text-align: center;
+}
+
+.hud-right {
+  justify-self: end;
+  text-align: right;
+}
+
+.hud-label {
+  opacity: 0.85;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.hud-score {
+  font-family: "ZCOOL QingKe HuangYou", "STKaiti", serif;
+  font-size: 30px;
+  line-height: 1;
+  color: #ffd987;
+  text-shadow: 0 2px 8px rgba(229, 150, 44, 0.3);
+}
+
+.hud-speed {
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.hud-combo {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.hud-combo.frenzy {
+  color: #ffd13d;
+  animation: comboPulse 160ms ease-out;
+}
+
+@keyframes comboPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.hud-progress-track {
+  margin-top: 4px;
+  width: 100%;
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(255, 244, 210, 0.22);
+  overflow: hidden;
+}
+
+.hud-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #cf9534, #f1bf57);
+  box-shadow: 0 0 10px rgba(236, 183, 71, 0.4);
+}
+
+.control-zone {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 28dvh;
+  z-index: 12;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 12px);
+  background: linear-gradient(
+    180deg,
+    rgba(66, 43, 30, 0) 0%,
+    rgba(66, 43, 30, 0.22) 45%,
+    rgba(66, 43, 30, 0.3) 100%
+  );
+  touch-action: none;
+}
+
+.control-zone p {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  color: rgba(255, 242, 214, 0.86);
+  text-shadow: 0 2px 4px rgba(43, 23, 15, 0.45);
+}
+
+.overlay-card {
+  width: min(86vw, 380px);
+  border-radius: 16px;
+  border: 1px solid rgba(246, 191, 116, 0.45);
+  background: linear-gradient(180deg, rgba(64, 35, 21, 0.88), rgba(54, 29, 19, 0.92));
+  color: #fff0cd;
+  padding: 16px 16px 18px;
+  box-shadow: 0 10px 16px rgba(66, 39, 24, 0.2);
+  backdrop-filter: saturate(130%);
+}
+
+.overlay-card h2,
+.overlay-card h3 {
+  margin: 0 0 8px;
+  font-family: "ZCOOL QingKe HuangYou", "STKaiti", serif;
+  letter-spacing: 0.04em;
+}
+
+.overlay-card p {
+  margin: 0 0 10px;
+  line-height: 1.45;
+  font-size: 14px;
+  opacity: 0.95;
+}
+
+.slot-picker-wrap {
+  position: absolute;
+  z-index: 32;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  padding: 88px 12px 140px;
+  background: radial-gradient(circle at 50% 20%, rgba(255, 196, 98, 0.2), rgba(0, 0, 0, 0.36));
+}
+
+.level-picker {
+  width: min(82vw, 360px);
+}
+
+.level-grid,
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+
+.slot-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.slot-button {
+  border: 1px solid rgba(255, 206, 130, 0.55);
+  background: rgba(248, 213, 154, 0.12);
+  color: #ffeccc;
+  border-radius: 10px;
+  padding: 9px 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.slot-button.active {
+  border-color: #f1be56;
+  color: #2f1c12;
+  background: linear-gradient(180deg, #ffd684, #ebb24e);
+}
+
+.primary-button,
+.ghost-button {
+  border: none;
+  border-radius: 10px;
+  padding: 11px 14px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.primary-button {
+  width: 100%;
+  color: #331a11;
+  background: linear-gradient(180deg, #ffd584, #e0a12e);
+}
+
+.ghost-button {
+  width: 100%;
+  color: #ffdcb8;
+  border: 1px solid rgba(247, 195, 124, 0.4);
+  background: rgba(248, 214, 157, 0.08);
+}
+
+.onboarding-hint {
+  position: absolute;
+  z-index: 35;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.gameover-panel,
+.victory-panel {
+  position: absolute;
+  z-index: 34;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.panel-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.stats-grid div {
+  display: grid;
+  gap: 3px;
+  padding: 8px;
+  border-radius: 10px;
+  background: rgba(250, 220, 175, 0.08);
+}
+
+.stat-label {
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.stats-grid strong {
+  font-size: 14px;
+}
+
+.level-clear-toast {
+  position: absolute;
+  z-index: 24;
+  top: calc(env(safe-area-inset-top) + 66px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: #42220f;
+  background: linear-gradient(180deg, #ffe0a0, #f1bc54);
+  box-shadow: 0 10px 16px rgba(130, 22, 16, 0.3);
+}
+
+.rotate-lock-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: rgba(31, 17, 10, 0.78);
+}
+
+.rotate-card {
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .game-stage {
+    max-width: 460px;
+    margin: 0 auto;
+    border-left: 1px solid rgba(145, 92, 54, 0.18);
+    border-right: 1px solid rgba(145, 92, 54, 0.18);
+    box-shadow: 0 0 0 1px rgba(255, 228, 190, 0.4);
+  }
+}
