@@ -337,7 +337,7 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
           }}
           aria-label={audioMuted ? "开启音乐" : "关闭音乐"}
         >
-          {audioMuted ? "音乐: 关" : "音乐: 开"}
+          {audioMuted ? "国风乐: 关" : "国风乐: 开"}
         </button>
 
         <DragCoach
