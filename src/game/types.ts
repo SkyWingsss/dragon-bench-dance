@@ -1,5 +1,6 @@
 export type PlayerSlot = 1 | 2 | 3 | 4 | 5;
 export type LevelId = 1 | 2 | 3;
+export type MapThemeId = "water-town-entry" | "whitewall-alley" | "ancestral-street";
 
 export type GameStatus =
   | "ready"
@@ -25,6 +26,36 @@ export interface DragonSegmentFrame {
   risk: number;
   isHead: boolean;
   isPlayer: boolean;
+  isTail: boolean;
+  role: "head" | "body" | "tail";
+}
+
+export interface RoadFrameSample {
+  s: number;
+  x: number;
+  y: number;
+  angle: number;
+  curvature: number;
+}
+
+export interface CameraAnchor {
+  x: number;
+  y: number;
+}
+
+export interface MinimapSample {
+  x: number;
+  y: number;
+}
+
+export type LandmarkKind = "arch" | "lantern" | "stone-bridge" | "turn-sign";
+
+export interface LandmarkSample {
+  s: number;
+  x: number;
+  y: number;
+  angle: number;
+  kind: LandmarkKind;
 }
 
 export interface PhysicsSnapshot {
@@ -42,6 +73,14 @@ export interface PhysicsSnapshot {
   breakMarginPx: number;
   maxCombo: number;
   failureSpeed: number;
+  playerSlot: PlayerSlot;
+  playerSegmentIndex: number;
+  mapTheme: MapThemeId;
+  mapSeed: number;
+  cameraAnchor: CameraAnchor;
+  roadSamples: RoadFrameSample[];
+  minimapSamples: MinimapSample[];
+  landmarks: LandmarkSample[];
   segments: DragonSegmentFrame[];
 }
 

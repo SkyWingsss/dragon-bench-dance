@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { MAP_MINIMAP_SAMPLE_COUNT } from "../Constants";
 import {
   DragonPhysicsEngine,
   calcCentrifugalForce,
@@ -49,7 +50,22 @@ describe("dragon physics core", () => {
 
     engine.setPaused(false);
     stepFrames(engine, 60);
-    expect(engine.getSnapshot().distance).toBeGreaterThan(afterPausedDistance);
+    const resumed = engine.getSnapshot();
+    expect(resumed.distance).toBeGreaterThan(afterPausedDistance);
+    expect(resumed.playerSegmentIndex).toBe(10);
+    expect(resumed.playerSlot).toBe(3);
+    expect(Number.isFinite(resumed.cameraAnchor.x)).toBe(true);
+    expect(Number.isFinite(resumed.cameraAnchor.y)).toBe(true);
+    expect(resumed.roadSamples.length).toBeGreaterThan(20);
+    expect(resumed.minimapSamples.length).toBe(MAP_MINIMAP_SAMPLE_COUNT);
+    expect(Number.isFinite(resumed.mapSeed)).toBe(true);
+    expect(resumed.mapTheme).toBeTruthy();
+
+    const heads = resumed.segments.filter((segment) => segment.role === "head");
+    const tails = resumed.segments.filter((segment) => segment.role === "tail");
+    expect(heads).toHaveLength(1);
+    expect(tails).toHaveLength(1);
+    expect(resumed.segments[resumed.playerSegmentIndex].isPlayer).toBe(true);
   });
 
   it("restart should reset key runtime state immediately", () => {
@@ -70,5 +86,10 @@ describe("dragon physics core", () => {
     expect(restarted.score).toBe(0);
     expect(restarted.combo).toBe(0);
     expect(Math.abs(restarted.playerOffsetPx)).toBeLessThan(0.01);
+    expect(restarted.playerSegmentIndex).toBe(16);
+    expect(restarted.playerSlot).toBe(5);
+    expect(restarted.roadSamples.length).toBeGreaterThan(20);
+    expect(restarted.minimapSamples.length).toBe(MAP_MINIMAP_SAMPLE_COUNT);
+    expect(restarted.landmarks.length).toBeGreaterThan(0);
   });
 });

@@ -4,6 +4,7 @@ interface GameOverPanelProps {
   maxCombo: number;
   failSpeed: number;
   breakDelta: number;
+  playerSlot: number;
   onRetry: () => void;
   onBack: () => void;
 }
@@ -21,6 +22,7 @@ export function GameOverPanel(props: GameOverPanelProps): JSX.Element | null {
   return (
     <section className="overlay-card gameover-panel" role="dialog" aria-label="失败结算">
       <h2>龙身断裂</h2>
+      <p>你负责的是 {props.playerSlot} 号节位，优先把这节拉回道路中心。</p>
       <div className="stats-grid">
         <div>
           <span className="stat-label">分数</span>

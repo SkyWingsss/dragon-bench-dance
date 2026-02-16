@@ -1,3 +1,6 @@
+import { THEME_CONFIG } from "../game/Constants";
+import type { LandmarkSample, MapThemeId, MinimapSample } from "../game/types";
+import { MiniMap } from "./MiniMap";
 import { theme } from "./theme";
 
 interface HUDTopBarProps {
@@ -8,6 +11,11 @@ interface HUDTopBarProps {
   progress: number;
   risk: number;
   frenzy: boolean;
+  playerSlot: number;
+  mapTheme: MapThemeId;
+  minimapSamples: MinimapSample[];
+  landmarks: LandmarkSample[];
+  playerDistance: number;
 }
 
 function formatSpeed(speed: number): string {
@@ -17,6 +25,7 @@ function formatSpeed(speed: number): string {
 export function HUDTopBar(props: HUDTopBarProps): JSX.Element {
   const progress = Math.max(0, Math.min(1, props.progress));
   const risk = Math.max(0, Math.min(1, props.risk));
+  const themeLabel = THEME_CONFIG[props.mapTheme].label;
 
   return (
     <header
@@ -27,13 +36,28 @@ export function HUDTopBar(props: HUDTopBarProps): JSX.Element {
       }}
     >
       <section className="hud-block hud-left">
-        <div className="hud-label">关卡 {props.level}</div>
-        <div className="hud-progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(progress * 100)}>
+        <div className="hud-level-line">
+          <div className="hud-label">关卡 {props.level}</div>
+          <div className="hud-theme-tag">{themeLabel}</div>
+        </div>
+        <div
+          className="hud-progress-track"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(progress * 100)}
+        >
           <div
             className="hud-progress-fill"
             style={{ width: `${(progress * 100).toFixed(2)}%` }}
           />
         </div>
+        <MiniMap
+          samples={props.minimapSamples}
+          landmarks={props.landmarks}
+          playerDistance={props.playerDistance}
+          risk={props.risk}
+        />
       </section>
 
       <section className="hud-block hud-mid">
@@ -42,7 +66,10 @@ export function HUDTopBar(props: HUDTopBarProps): JSX.Element {
       </section>
 
       <section className="hud-block hud-right">
-        <div className="hud-speed" style={{ fontFamily: theme.font.numeric }}>{formatSpeed(props.speed)}</div>
+        <div className="hud-speed" style={{ fontFamily: theme.font.numeric }}>
+          {formatSpeed(props.speed)}
+        </div>
+        <div className="hud-slot">负责 {props.playerSlot}号节位</div>
         <div className={`hud-combo ${props.frenzy ? "frenzy" : ""}`}>连击 x{props.combo}</div>
       </section>
     </header>

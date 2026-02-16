@@ -13,7 +13,13 @@ import {
   GRAVITY_SCALE,
   LEVEL_CLEAR_DELAY_MS,
   LEVEL_CONFIG,
+  LEVEL_THEME,
   LEVEL_ORDER,
+  MAP_LANDMARK_AHEAD,
+  MAP_LANDMARK_BEHIND,
+  MAP_MINIMAP_AHEAD,
+  MAP_MINIMAP_BEHIND,
+  MAP_MINIMAP_SAMPLE_COUNT,
   MAX_ABS_OFFSET,
   MAX_FRAME_DT,
   OFFSET_DAMPING,
@@ -22,13 +28,24 @@ import {
   SEGMENT_COUNT,
   SEGMENT_SPACING,
 } from "./Constants";
-import { createPathTrack, type PathTrack } from "./path";
+import {
+  buildMinimapSamples,
+  collectNearbyLandmarks,
+  createVillageMap,
+  type VillageMap,
+} from "./map";
+import type { PathTrack } from "./path";
 import type {
+  CameraAnchor,
   DragonSegmentFrame,
   GameStatus,
+  LandmarkSample,
   LevelId,
+  MapThemeId,
+  MinimapSample,
   PhysicsSnapshot,
   PlayerSlot,
+  RoadFrameSample,
   RunEndResult,
   UseDragonPhysicsApi,
 } from "./types";
@@ -45,6 +62,9 @@ interface StartOptions {
 }
 
 const PATH_PRELOAD_DISTANCE = 14000;
+const ROAD_SAMPLE_STEP = 40;
+const ROAD_SAMPLES_BEHIND = 10;
+const ROAD_SAMPLES_AHEAD = 26;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -60,6 +80,8 @@ function makeEmptySegments(): DragonSegmentFrame[] {
     risk: 0,
     isHead: index === 0,
     isPlayer: false,
+    isTail: index === SEGMENT_COUNT - 1,
+    role: index === 0 ? "head" : index === SEGMENT_COUNT - 1 ? "tail" : "body",
   }));
 }
 
@@ -67,7 +89,20 @@ function cloneSegments(segments: DragonSegmentFrame[]): DragonSegmentFrame[] {
   return segments.map((segment) => ({ ...segment }));
 }
 
+function cloneRoadSamples(samples: RoadFrameSample[]): RoadFrameSample[] {
+  return samples.map((sample) => ({ ...sample }));
+}
+
+function cloneMinimapSamples(samples: MinimapSample[]): MinimapSample[] {
+  return samples.map((sample) => ({ ...sample }));
+}
+
+function cloneLandmarks(landmarks: LandmarkSample[]): LandmarkSample[] {
+  return landmarks.map((landmark) => ({ ...landmark }));
+}
+
 function createInitialSnapshot(level: LevelId): PhysicsSnapshot {
+  const mapTheme = LEVEL_THEME[level];
   return {
     status: "ready",
     level,
@@ -83,6 +118,14 @@ function createInitialSnapshot(level: LevelId): PhysicsSnapshot {
     breakMarginPx: BASE_BREAK_THRESHOLD,
     maxCombo: 0,
     failureSpeed: 0,
+    playerSlot: 1,
+    playerSegmentIndex: PLAYER_SLOT_TO_SEGMENT_INDEX[1],
+    mapTheme,
+    mapSeed: LEVEL_CONFIG[level].seed,
+    cameraAnchor: { x: 0, y: 0 },
+    roadSamples: [],
+    minimapSamples: [],
+    landmarks: [],
     segments: makeEmptySegments(),
   };
 }
@@ -110,6 +153,12 @@ export class DragonPhysicsEngine {
   private slot: PlayerSlot;
 
   private pathTrack: PathTrack;
+
+  private villageMap: VillageMap;
+
+  private mapTheme: MapThemeId;
+
+  private mapSeed: number;
 
   private snapshot: PhysicsSnapshot;
 
@@ -145,12 +194,17 @@ export class DragonPhysicsEngine {
 
   private emittedResultKey: string | null;
 
+  private mapSeedNonce: number;
+
   constructor(options: EngineOptions = {}) {
     this.level = options.initialLevel ?? 1;
     this.slot = options.defaultSlot ?? 1;
     this.onRunEnd = options.onRunEnd;
-
-    this.pathTrack = createPathTrack(LEVEL_CONFIG[this.level].seed, PATH_PRELOAD_DISTANCE);
+    this.mapSeedNonce = 0;
+    this.mapTheme = LEVEL_THEME[this.level];
+    this.mapSeed = this.generateMapSeed(this.level);
+    this.villageMap = createVillageMap(this.mapSeed, this.mapTheme, PATH_PRELOAD_DISTANCE);
+    this.pathTrack = this.villageMap.pathTrack;
     this.snapshot = createInitialSnapshot(this.level);
     this.offsets = Array.from({ length: SEGMENT_COUNT }, () => 0);
     this.offsetVels = Array.from({ length: SEGMENT_COUNT }, () => 0);
@@ -168,13 +222,18 @@ export class DragonPhysicsEngine {
     this.maxCombo = 0;
     this.failureSpeed = 0;
     this.emittedResultKey = null;
-
+    this.snapshot.mapTheme = this.mapTheme;
+    this.snapshot.mapSeed = this.mapSeed;
     this.updateSegmentsAndSnapshot("ready");
   }
 
   getSnapshot(): PhysicsSnapshot {
     return {
       ...this.snapshot,
+      cameraAnchor: { ...this.snapshot.cameraAnchor },
+      roadSamples: cloneRoadSamples(this.snapshot.roadSamples),
+      minimapSamples: cloneMinimapSamples(this.snapshot.minimapSamples),
+      landmarks: cloneLandmarks(this.snapshot.landmarks),
       segments: cloneSegments(this.snapshot.segments),
     };
   }
@@ -244,11 +303,25 @@ export class DragonPhysicsEngine {
     }
   }
 
+  private generateMapSeed(level: LevelId): number {
+    this.mapSeedNonce += 1;
+    const base = LEVEL_CONFIG[level].seed * 131071;
+    const randomPart = Math.floor(Math.random() * 1_000_000);
+    return (base + randomPart + this.mapSeedNonce * 977) >>> 0;
+  }
+
+  private rebuildVillageMap(level: LevelId): void {
+    this.mapTheme = LEVEL_THEME[level];
+    this.mapSeed = this.generateMapSeed(level);
+    this.villageMap = createVillageMap(this.mapSeed, this.mapTheme, PATH_PRELOAD_DISTANCE);
+    this.pathTrack = this.villageMap.pathTrack;
+  }
+
   private setupLevel(level: LevelId, options: StartOptions): void {
     const config = LEVEL_CONFIG[level];
 
     this.level = level;
-    this.pathTrack = createPathTrack(config.seed, PATH_PRELOAD_DISTANCE);
+    this.rebuildVillageMap(level);
     this.offsets = Array.from({ length: SEGMENT_COUNT }, () => 0);
     this.offsetVels = Array.from({ length: SEGMENT_COUNT }, () => 0);
     this.speed = config.baseSpeed;
@@ -287,7 +360,7 @@ export class DragonPhysicsEngine {
 
     this.level = next;
     const config = LEVEL_CONFIG[next];
-    this.pathTrack = createPathTrack(config.seed, PATH_PRELOAD_DISTANCE);
+    this.rebuildVillageMap(next);
     this.offsets = Array.from({ length: SEGMENT_COUNT }, () => 0);
     this.offsetVels = Array.from({ length: SEGMENT_COUNT }, () => 0);
     this.speed = config.baseSpeed;
@@ -429,11 +502,47 @@ export class DragonPhysicsEngine {
             : Math.abs(offset) / (BASE_BREAK_THRESHOLD / (1 + index / SEGMENT_COUNT)),
         isHead: index === 0,
         isPlayer: index === playerIndex,
+        isTail: index === SEGMENT_COUNT - 1,
+        role: index === 0 ? "head" : index === SEGMENT_COUNT - 1 ? "tail" : "body",
       });
     }
 
     const playerOffset = this.offsets[playerIndex] ?? 0;
     const risk = Math.abs(playerOffset) / breakThreshold;
+    const playerSegment = segments[playerIndex];
+    const playerDistance = this.distance - playerIndex * SEGMENT_SPACING;
+    const roadSamples: RoadFrameSample[] = [];
+
+    for (let sampleIndex = -ROAD_SAMPLES_BEHIND; sampleIndex <= ROAD_SAMPLES_AHEAD; sampleIndex += 1) {
+      const sampleDistance = playerDistance + sampleIndex * ROAD_SAMPLE_STEP;
+      const sample = this.pathTrack.sampleAtDistance(sampleDistance);
+
+      roadSamples.push({
+        s: sample.s,
+        x: sample.x,
+        y: sample.y,
+        angle: sample.angle,
+        curvature: sample.curvature,
+      });
+    }
+
+    const minimapSamples = buildMinimapSamples(
+      this.pathTrack,
+      playerDistance,
+      MAP_MINIMAP_SAMPLE_COUNT,
+      MAP_MINIMAP_BEHIND,
+      MAP_MINIMAP_AHEAD,
+    );
+    const landmarks = collectNearbyLandmarks(
+      this.villageMap.landmarks,
+      playerDistance,
+      MAP_LANDMARK_BEHIND,
+      MAP_LANDMARK_AHEAD,
+    );
+
+    const cameraAnchor: CameraAnchor = playerSegment
+      ? { x: playerSegment.x, y: playerSegment.y }
+      : { x: 0, y: 0 };
 
     this.snapshot = {
       status: nextStatus,
@@ -450,6 +559,14 @@ export class DragonPhysicsEngine {
       breakMarginPx: breakThreshold - Math.abs(playerOffset),
       maxCombo: this.maxCombo,
       failureSpeed: this.failureSpeed,
+      playerSlot: this.slot,
+      playerSegmentIndex: playerIndex,
+      mapTheme: this.mapTheme,
+      mapSeed: this.mapSeed,
+      cameraAnchor,
+      roadSamples,
+      minimapSamples,
+      landmarks,
       segments,
     };
   }

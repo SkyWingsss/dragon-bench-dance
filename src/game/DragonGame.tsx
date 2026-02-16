@@ -5,6 +5,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { SEGMENT_SPACING } from "./Constants";
 import { createDragonRenderer, type DragonRenderer } from "./renderer";
 import { useDragonPhysics } from "./useDragonPhysics";
 import type { LevelId, OverlayState, PlayerSlot, RunEndResult } from "./types";
@@ -30,6 +31,16 @@ function detectPortrait(): boolean {
   return window.innerHeight >= window.innerWidth;
 }
 
+function shouldIgnoreDragTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  return (
+    target.closest("button, a, input, textarea, select, [role='dialog'], .overlay-card") !== null
+  );
+}
+
 export function DragonGame(props: DragonGameProps): JSX.Element {
   const initialLevel = props.initialLevel ?? 1;
   const initialSlot = props.defaultSlot ?? 1;
@@ -53,6 +64,7 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
     },
   });
 
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const rendererRef = useRef<DragonRenderer | null>(null);
   const snapshotRef = useRef(snapshot);
@@ -99,8 +111,9 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
   }, [tick]);
 
   useEffect(() => {
+    const stage = stageRef.current;
     const canvas = canvasRef.current;
-    if (!canvas) {
+    if (!stage || !canvas) {
       return;
     }
 
@@ -108,7 +121,7 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
     rendererRef.current = renderer;
 
     const resize = (): void => {
-      const rect = canvas.getBoundingClientRect();
+      const rect = stage.getBoundingClientRect();
       renderer.resize(rect.width, rect.height, window.devicePixelRatio || 1);
       renderer.render(snapshotRef.current, 1 / 60);
     };
@@ -118,11 +131,22 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
     let observer: ResizeObserver | null = null;
     if (typeof ResizeObserver !== "undefined") {
       observer = new ResizeObserver(resize);
-      observer.observe(canvas);
+      observer.observe(stage);
     }
+
+    const viewport = window.visualViewport;
+    if (viewport) {
+      viewport.addEventListener("resize", resize);
+      viewport.addEventListener("scroll", resize);
+    }
+
+    window.addEventListener("resize", resize);
 
     return () => {
       observer?.disconnect();
+      viewport?.removeEventListener("resize", resize);
+      viewport?.removeEventListener("scroll", resize);
+      window.removeEventListener("resize", resize);
       renderer.dispose();
       rendererRef.current = null;
     };
@@ -183,6 +207,14 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>): void => {
+    if (shouldIgnoreDragTarget(event.target)) {
+      return;
+    }
+
+    if (snapshot.status !== "running" || !isPortrait) {
+      return;
+    }
+
     dragActiveRef.current = true;
     dragXRef.current = event.clientX;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -206,10 +238,19 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
   };
 
   const progress = Math.min(1, snapshot.targetDistance > 0 ? snapshot.distance / snapshot.targetDistance : 0);
+  const playerDistance = snapshot.distance - snapshot.playerSegmentIndex * SEGMENT_SPACING;
 
   return (
     <main className="dragon-game-root">
-      <div className="game-stage">
+      <div
+        ref={stageRef}
+        className="game-stage"
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={releaseDrag}
+        onPointerCancel={releaseDrag}
+        onPointerLeave={releaseDrag}
+      >
         <HUDTopBar
           level={snapshot.level}
           score={snapshot.score}
@@ -218,6 +259,11 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
           progress={progress}
           risk={snapshot.risk}
           frenzy={snapshot.frenzy}
+          playerSlot={snapshot.playerSlot}
+          mapTheme={snapshot.mapTheme}
+          minimapSamples={snapshot.minimapSamples}
+          landmarks={snapshot.landmarks}
+          playerDistance={playerDistance}
         />
 
         <canvas ref={canvasRef} className="dragon-canvas" aria-label="独龙狂舞游戏画布" />
@@ -228,15 +274,8 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
           </div>
         )}
 
-        <section
-          className="control-zone"
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={releaseDrag}
-          onPointerCancel={releaseDrag}
-          onPointerLeave={releaseDrag}
-        >
-          <p>向甩出的反方向拖拽修正离心力</p>
+        <section className="control-zone">
+          <p>全屏拖拽修正离心力，向甩出反方向拉回板凳</p>
         </section>
 
         {showSlotPicker && isPortrait && (
@@ -273,6 +312,7 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
           maxCombo={snapshot.maxCombo}
           failSpeed={snapshot.failureSpeed}
           breakDelta={Math.abs(snapshot.playerOffsetPx) - snapshot.breakThresholdPx}
+          playerSlot={snapshot.playerSlot}
           onRetry={handleRetry}
           onBack={handleBack}
         />
