@@ -12,7 +12,7 @@ export function SlotPicker(props: SlotPickerProps): JSX.Element {
   return (
     <section className="overlay-card slot-picker">
       <h2>选择节位</h2>
-      <p>硬核模式已开启。数字越靠后离心惩罚越高，5号龙尾为最高压。</p>
+      <p>建议先用 1 号完成新手教学，再挑战后排节位。</p>
       <div className="slot-grid">
         {slots.map((slot) => (
           <button

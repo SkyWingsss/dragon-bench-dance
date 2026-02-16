@@ -114,23 +114,25 @@ describe("dragon physics core", () => {
     expect(restarted.landmarks.length).toBeGreaterThan(0);
   });
 
-  it("fails all levels without drag input in hardcore tuning", () => {
-    const scenarios: Array<{ level: 1 | 2 | 3; slot: 1 | 3 | 5 }> = [
-      { level: 1, slot: 1 },
-      { level: 2, slot: 3 },
-      { level: 3, slot: 5 },
-    ];
+  it("tutorial level should provide a short learnable window", () => {
+    const engine = new DragonPhysicsEngine({ initialLevel: 0, defaultSlot: 1 });
+    engine.startLevel(0, 1);
+    stepFrames(engine, 240);
+    const snapshot = engine.getSnapshot();
 
-    for (const scenario of scenarios) {
-      const engine = new DragonPhysicsEngine({
-        initialLevel: scenario.level,
-        defaultSlot: scenario.slot,
-      });
-      engine.startLevel(scenario.level, scenario.slot);
-      runUntilStop(engine, 5200);
-      const snapshot = engine.getSnapshot();
-      expect(snapshot.status).toBe("gameover");
-      expect(snapshot.distance).toBeLessThan(snapshot.targetDistance);
-    }
+    expect(snapshot.level).toBe(0);
+    expect(snapshot.status === "running" || snapshot.status === "level-clear").toBe(true);
+    expect(snapshot.distance).toBeGreaterThan(0);
+    expect(snapshot.status).not.toBe("gameover");
+  });
+
+  it("high difficulty slot should still fail without input", () => {
+    const engine = new DragonPhysicsEngine({ initialLevel: 3, defaultSlot: 5 });
+    engine.startLevel(3, 5);
+    runUntilStop(engine, 5600);
+    const snapshot = engine.getSnapshot();
+
+    expect(snapshot.status).toBe("gameover");
+    expect(snapshot.distance).toBeLessThan(snapshot.targetDistance);
   });
 });

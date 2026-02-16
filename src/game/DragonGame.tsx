@@ -8,6 +8,7 @@ import {
 import { SEGMENT_SPACING } from "./Constants";
 import { createDragonRenderer, type DragonRenderer } from "./renderer";
 import { useDragonPhysics } from "./useDragonPhysics";
+import { DragonAudioEngine, readStoredMuted } from "./audio";
 import type { LevelId, OverlayState, PlayerSlot, RunEndResult } from "./types";
 import { HUDTopBar } from "../ui/HUDTopBar";
 import { SlotPicker } from "../ui/SlotPicker";
@@ -18,12 +19,12 @@ import { DragCoach } from "../ui/DragCoach";
 import { useOnboardingFlag } from "../ui/useOnboardingFlag";
 
 export interface DragonGameProps {
-  initialLevel?: 1 | 2 | 3;
+  initialLevel?: 0 | 1 | 2 | 3;
   defaultSlot?: 1 | 2 | 3 | 4 | 5;
-  onRunEnd?: (result: { level: 1 | 2 | 3; score: number; cleared: boolean }) => void;
+  onRunEnd?: (result: { level: 0 | 1 | 2 | 3; score: number; cleared: boolean }) => void;
 }
 
-const levels: LevelId[] = [1, 2, 3];
+const levels: LevelId[] = [0, 1, 2, 3];
 
 function detectPortrait(): boolean {
   if (typeof window === "undefined") {
@@ -43,13 +44,14 @@ function shouldIgnoreDragTarget(target: EventTarget | null): boolean {
 }
 
 export function DragonGame(props: DragonGameProps): JSX.Element {
-  const initialLevel = props.initialLevel ?? 1;
+  const initialLevel = props.initialLevel ?? 0;
   const initialSlot = props.defaultSlot ?? 1;
 
   const [selectedSlot, setSelectedSlot] = useState<PlayerSlot>(initialSlot);
   const [selectedLevel, setSelectedLevel] = useState<LevelId>(initialLevel);
   const [showSlotPicker, setShowSlotPicker] = useState<boolean>(true);
   const [isPortrait, setIsPortrait] = useState<boolean>(() => detectPortrait());
+  const [audioMuted, setAudioMuted] = useState<boolean>(() => readStoredMuted());
 
   const onRunEndRef = useRef<DragonGameProps["onRunEnd"]>(props.onRunEnd);
   onRunEndRef.current = props.onRunEnd;
@@ -74,9 +76,25 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
   const dragXRef = useRef(0);
   const hasDraggedRef = useRef(false);
   const lastDragAtMsRef = useRef<number>(0);
+  const audioRef = useRef<DragonAudioEngine | null>(null);
+
+  useEffect(() => {
+    const audio = new DragonAudioEngine(audioMuted);
+    audioRef.current = audio;
+
+    return () => {
+      audio.dispose();
+      audioRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    audioRef.current?.setMuted(audioMuted);
+  }, [audioMuted]);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
+    audioRef.current?.update(snapshot);
   }, [snapshot]);
 
   useEffect(() => {
@@ -199,6 +217,7 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
     setShowSlotPicker(false);
     hasDraggedRef.current = false;
     lastDragAtMsRef.current = 0;
+    void audioRef.current?.unlock();
     startLevel(selectedLevel, selectedSlot);
   };
 
@@ -206,6 +225,7 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
     setShowSlotPicker(false);
     hasDraggedRef.current = false;
     lastDragAtMsRef.current = 0;
+    void audioRef.current?.unlock();
     restartLevel();
   };
 
@@ -293,13 +313,25 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
 
         {overlayState === "level-clear" && (
           <div className="level-clear-toast" role="status">
-            第{snapshot.level}关完成，继续狂舞
+            {snapshot.level === 0 ? "教学完成，进入第一关" : `第${snapshot.level}关完成，继续狂舞`}
           </div>
         )}
 
         <section className="control-zone">
           <p>全屏任意位置可拖拽，长按并左右移动即可修正离心</p>
         </section>
+
+        <button
+          type="button"
+          className="audio-toggle-button"
+          onClick={(): void => {
+            void audioRef.current?.unlock();
+            setAudioMuted((prev) => !prev);
+          }}
+          aria-label={audioMuted ? "开启音乐" : "关闭音乐"}
+        >
+          {audioMuted ? "音乐: 关" : "音乐: 开"}
+        </button>
 
         <DragCoach
           visible={showDragCoach}
@@ -323,7 +355,7 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
                     className={`slot-button ${selectedLevel === level ? "active" : ""}`}
                     onClick={() => setSelectedLevel(level)}
                   >
-                    第{level}关
+                    {level === 0 ? "新手教学" : `第${level}关`}
                   </button>
                 ))}
               </div>

@@ -71,6 +71,7 @@ const MAP_ROUGHNESS_ATTEMPTS = 8;
 const ONRAMP_SEC = 3.4;
 const TURBULENCE_ONRAMP_SEC = 4.1;
 const LEVEL_ROUGHNESS_FLOOR: Record<LevelId, number> = {
+  0: 0.00105,
   1: 0.00175,
   2: 0.0022,
   3: 0.00275,
@@ -227,7 +228,7 @@ export class DragonPhysicsEngine {
   private runTimeSec: number;
 
   constructor(options: EngineOptions = {}) {
-    this.level = options.initialLevel ?? 1;
+    this.level = options.initialLevel ?? 0;
     this.slot = options.defaultSlot ?? 1;
     this.onRunEnd = options.onRunEnd;
     this.mapSeedNonce = 0;
@@ -356,7 +357,7 @@ export class DragonPhysicsEngine {
         PATH_PRELOAD_DISTANCE,
         LEVEL_PATH_PROFILE[level],
       );
-      const sampleDistance = Math.max(2200, LEVEL_CONFIG[level].targetDistance * 0.8);
+      const sampleDistance = Math.max(900, LEVEL_CONFIG[level].targetDistance * 0.8);
       const roughness = estimatePathRoughness(candidateMap.pathTrack, sampleDistance);
 
       if (roughness >= roughnessFloor || attempt === MAP_ROUGHNESS_ATTEMPTS - 1) {
@@ -493,7 +494,7 @@ export class DragonPhysicsEngine {
       const outwardDirection = Math.sign(sample.curvature);
       const pressureMultiplier =
         index === playerIndex
-          ? lerp(0.92, 1.9 + (this.speed / Math.max(config.maxSpeed, 1)) * 0.45, pressureRamp)
+          ? lerp(0.78, 1.55 + (this.speed / Math.max(config.maxSpeed, 1)) * 0.28, pressureRamp)
           : 1;
 
       let acceleration = outwardDirection * centrifugalMagnitude * pressureMultiplier;
@@ -502,7 +503,7 @@ export class DragonPhysicsEngine {
         const turbulenceBase =
           Math.sin(this.distance * (0.017 + this.level * 0.0028) + index * 0.92) *
           this.speed *
-          (0.18 + this.level * 0.03);
+          (0.11 + this.level * 0.02);
         acceleration += turbulenceBase * turbulenceRamp;
         acceleration += this.inputForce;
       }

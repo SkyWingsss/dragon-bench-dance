@@ -326,6 +326,26 @@ body {
   animation: coachIn 180ms ease-out;
 }
 
+.audio-toggle-button {
+  position: absolute;
+  z-index: 22;
+  top: calc(env(safe-area-inset-top) + 64px);
+  right: 12px;
+  border: 1px solid rgba(246, 204, 132, 0.48);
+  border-radius: 999px;
+  background: rgba(50, 28, 18, 0.66);
+  color: #ffe7be;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 6px 10px;
+  backdrop-filter: blur(2px);
+}
+
+.audio-toggle-button:active {
+  transform: scale(0.98);
+}
+
 .drag-coach.warn {
   border-color: rgba(223, 80, 61, 0.72);
   box-shadow: 0 12px 18px rgba(122, 30, 21, 0.35);
@@ -446,7 +466,7 @@ body {
 .level-grid,
 .slot-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   margin: 10px 0 12px;
 }
@@ -614,5 +634,12 @@ body {
 
   .hud-score {
     font-size: 26px;
+  }
+
+  .audio-toggle-button {
+    top: calc(env(safe-area-inset-top) + 58px);
+    right: 10px;
+    font-size: 11px;
+    padding: 5px 9px;
   }
 }

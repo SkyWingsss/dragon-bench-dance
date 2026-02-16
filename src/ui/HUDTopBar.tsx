@@ -46,6 +46,7 @@ export function HUDTopBar(props: HUDTopBarProps): JSX.Element {
   const depthNorm = Math.max(0, Math.min(1, props.cameraDepthNorm));
   const themeLabel = THEME_CONFIG[props.mapTheme].label;
   const riskLabel = toRiskLabel(props.risk);
+  const levelLabel = props.level === 0 ? "教程关" : `关卡 ${props.level}`;
 
   return (
     <header
@@ -57,7 +58,7 @@ export function HUDTopBar(props: HUDTopBarProps): JSX.Element {
     >
       <section className="hud-block hud-left">
         <div className="hud-level-line">
-          <div className="hud-label">关卡 {props.level}</div>
+          <div className="hud-label">{levelLabel}</div>
           <div className="hud-theme-tag">{themeLabel}</div>
           <div className="hud-difficulty-tag">{props.difficultyTier.toUpperCase()}</div>
         </div>

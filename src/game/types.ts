@@ -1,5 +1,5 @@
 export type PlayerSlot = 1 | 2 | 3 | 4 | 5;
-export type LevelId = 1 | 2 | 3;
+export type LevelId = 0 | 1 | 2 | 3;
 export type MapThemeId = "water-town-entry" | "whitewall-alley" | "ancestral-street";
 export type DifficultyTier = "hardcore";
 
