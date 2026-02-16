@@ -14,6 +14,7 @@ import { SlotPicker } from "../ui/SlotPicker";
 import { OnboardingHint } from "../ui/OnboardingHint";
 import { GameOverPanel } from "../ui/GameOverPanel";
 import { RotateLockMask } from "../ui/RotateLockMask";
+import { DragCoach } from "../ui/DragCoach";
 import { useOnboardingFlag } from "../ui/useOnboardingFlag";
 
 export interface DragonGameProps {
@@ -71,6 +72,8 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
   const renderClockRef = useRef<number | null>(null);
   const dragActiveRef = useRef(false);
   const dragXRef = useRef(0);
+  const hasDraggedRef = useRef(false);
+  const lastDragAtMsRef = useRef<number>(0);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
@@ -194,16 +197,22 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
 
   const handleStart = (): void => {
     setShowSlotPicker(false);
+    hasDraggedRef.current = false;
+    lastDragAtMsRef.current = 0;
     startLevel(selectedLevel, selectedSlot);
   };
 
   const handleRetry = (): void => {
     setShowSlotPicker(false);
+    hasDraggedRef.current = false;
+    lastDragAtMsRef.current = 0;
     restartLevel();
   };
 
   const handleBack = (): void => {
     setShowSlotPicker(true);
+    hasDraggedRef.current = false;
+    lastDragAtMsRef.current = 0;
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLElement>): void => {
@@ -228,8 +237,10 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
     const deltaX = event.clientX - dragXRef.current;
     dragXRef.current = event.clientX;
 
-    if (snapshot.status === "running" && isPortrait) {
+    if (snapshot.status === "running" && isPortrait && Math.abs(deltaX) > 0.01) {
       onDrag(deltaX);
+      hasDraggedRef.current = true;
+      lastDragAtMsRef.current = performance.now();
     }
   };
 
@@ -239,6 +250,15 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
 
   const progress = Math.min(1, snapshot.targetDistance > 0 ? snapshot.distance / snapshot.targetDistance : 0);
   const playerDistance = snapshot.distance - snapshot.playerSegmentIndex * SEGMENT_SPACING;
+  const nowMs = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const idleMs =
+    lastDragAtMsRef.current <= 0 ? Number.POSITIVE_INFINITY : nowMs - lastDragAtMsRef.current;
+  const showDragCoach =
+    overlayState === "none" &&
+    snapshot.status === "running" &&
+    isPortrait &&
+    !showSlotPicker &&
+    (!hasDraggedRef.current || idleMs > 1800 || snapshot.risk >= 0.5);
 
   return (
     <main className="dragon-game-root">
@@ -277,8 +297,18 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
         )}
 
         <section className="control-zone">
-          <p>全屏拖拽修正离心力，向甩出反方向拉回板凳</p>
+          <p>全屏任意位置可拖拽，长按并左右移动即可修正离心</p>
         </section>
+
+        <DragCoach
+          visible={showDragCoach}
+          hasDragged={hasDraggedRef.current}
+          idleMs={idleMs}
+          risk={snapshot.risk}
+          playerOffsetPx={snapshot.playerOffsetPx}
+          breakThresholdPx={snapshot.breakThresholdPx}
+          playerSlot={snapshot.playerSlot}
+        />
 
         {showSlotPicker && isPortrait && (
           <div className="slot-picker-wrap">

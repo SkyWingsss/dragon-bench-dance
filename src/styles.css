@@ -306,6 +306,102 @@ body {
   background: rgba(45, 26, 17, 0.25);
 }
 
+.drag-coach {
+  position: absolute;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 52px);
+  transform: translateX(-50%);
+  z-index: 18;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+  width: min(90vw, 420px);
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(247, 196, 123, 0.45);
+  background: linear-gradient(180deg, rgba(64, 35, 21, 0.86), rgba(49, 27, 18, 0.88));
+  box-shadow: 0 10px 16px rgba(43, 24, 14, 0.3);
+  pointer-events: none;
+  animation: coachIn 180ms ease-out;
+}
+
+.drag-coach.warn {
+  border-color: rgba(223, 80, 61, 0.72);
+  box-shadow: 0 12px 18px rgba(122, 30, 21, 0.35);
+}
+
+.drag-coach-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffd39a;
+  font-size: 14px;
+  opacity: 0.92;
+}
+
+.drag-coach-finger {
+  font-size: 10px;
+  color: #ffe6be;
+  animation: fingerPulse 920ms ease-in-out infinite;
+}
+
+.drag-coach-copy strong {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 13px;
+  color: #ffe3b3;
+  letter-spacing: 0.02em;
+}
+
+.drag-coach-copy p {
+  margin: 0;
+  font-size: 12px;
+  color: rgba(254, 239, 211, 0.92);
+  line-height: 1.38;
+}
+
+.drag-coach-meter {
+  margin-top: 6px;
+  width: 100%;
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(255, 236, 196, 0.16);
+  overflow: hidden;
+}
+
+.drag-coach-meter-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, rgba(224, 161, 46, 0.92), rgba(217, 46, 46, 0.9));
+}
+
+@keyframes coachIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes fingerPulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.62;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.62;
+  }
+}
+
 .overlay-card {
   width: min(86vw, 380px);
   border-radius: 16px;

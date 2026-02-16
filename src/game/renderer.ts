@@ -686,6 +686,54 @@ export function createDragonRenderer(canvas: HTMLCanvasElement): DragonRenderer 
     ctx.restore();
   };
 
+  const drawCorrectionGuide = (
+    from: Point,
+    to: Point,
+    risk: number,
+    shakeX: number,
+    shakeY: number,
+  ): void => {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance < 10) {
+      return;
+    }
+
+    const nx = dx / distance;
+    const ny = dy / distance;
+    const perpX = -ny;
+    const perpY = nx;
+    const alpha = 0.28 + clamp(risk, 0, 1) * 0.62;
+
+    ctx.save();
+    ctx.translate(shakeX * 0.28, shakeY * 0.2);
+    ctx.strokeStyle = `rgba(255, 224, 160, ${alpha.toFixed(3)})`;
+    ctx.lineWidth = 1.8 + clamp(risk, 0, 1) * 1.8;
+    ctx.setLineDash([7, 6]);
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const headLength = 10;
+    const wing = 5;
+    ctx.fillStyle = `rgba(255, 210, 126, ${alpha.toFixed(3)})`;
+    ctx.beginPath();
+    ctx.moveTo(to.x, to.y);
+    ctx.lineTo(to.x - nx * headLength + perpX * wing, to.y - ny * headLength + perpY * wing);
+    ctx.lineTo(to.x - nx * headLength - perpX * wing, to.y - ny * headLength - perpY * wing);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.font = '11px "Noto Sans SC", "PingFang SC", sans-serif';
+    ctx.textAlign = "center";
+    ctx.textBaseline = "bottom";
+    ctx.fillText("拖回中线", from.x + dx * 0.5, from.y + dy * 0.5 - 6);
+    ctx.restore();
+  };
+
   const drawSegment = (
     x: number,
     y: number,
@@ -861,6 +909,9 @@ export function createDragonRenderer(canvas: HTMLCanvasElement): DragonRenderer 
       const playerWorldX = player.x + playerNormal.x * playerWave;
       const playerWorldY = player.y + playerNormal.y * playerWave;
       const playerScreen = worldToScreen(playerWorldX, playerWorldY);
+      const playerCenterWorldX = player.x - playerNormal.x * player.offset;
+      const playerCenterWorldY = player.y - playerNormal.y * player.offset;
+      const playerCenterScreen = worldToScreen(playerCenterWorldX, playerCenterWorldY);
 
       updateTrailAndSparks(snapshot, playerScreen.x + shakeX, playerScreen.y + shakeY, dtSec);
       drawTrail();
@@ -906,6 +957,10 @@ export function createDragonRenderer(canvas: HTMLCanvasElement): DragonRenderer 
           shakeY,
         );
         });
+
+      if (Math.abs(player.offset) > 4 || snapshot.risk > 0.35) {
+        drawCorrectionGuide(playerScreen, playerCenterScreen, snapshot.risk, shakeX, shakeY);
+      }
 
       drawPlayerHalo(playerScreen.x, playerScreen.y, snapshot.risk, shakeX, shakeY);
       drawPlayerFlag(playerScreen.x, playerScreen.y, snapshot.playerSlot, snapshot.risk, shakeX, shakeY);
