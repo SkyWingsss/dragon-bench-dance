@@ -533,6 +533,29 @@ body {
   transform: translate(-50%, -50%);
 }
 
+.tutorial-rules-card {
+  position: absolute;
+  z-index: 30;
+  left: 50%;
+  top: calc(env(safe-area-inset-top) + 118px);
+  transform: translateX(-50%);
+  width: min(90vw, 430px);
+  background: linear-gradient(180deg, rgba(78, 45, 27, 0.9), rgba(54, 30, 19, 0.95));
+}
+
+.tutorial-rule-list {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.tutorial-rules-button {
+  margin-top: 2px;
+}
+
 .gameover-panel,
 .victory-panel {
   position: absolute;
@@ -641,5 +664,10 @@ body {
     right: 10px;
     font-size: 11px;
     padding: 5px 9px;
+  }
+
+  .tutorial-rules-card {
+    top: calc(env(safe-area-inset-top) + 104px);
+    width: min(92vw, 410px);
   }
 }

@@ -52,6 +52,7 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
   const [showSlotPicker, setShowSlotPicker] = useState<boolean>(true);
   const [isPortrait, setIsPortrait] = useState<boolean>(() => detectPortrait());
   const [audioMuted, setAudioMuted] = useState<boolean>(() => readStoredMuted());
+  const [showTutorialRules, setShowTutorialRules] = useState<boolean>(true);
 
   const onRunEndRef = useRef<DragonGameProps["onRunEnd"]>(props.onRunEnd);
   onRunEndRef.current = props.onRunEnd;
@@ -192,6 +193,9 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
 
   useEffect(() => {
     setSelectedLevel(snapshot.level);
+    if (snapshot.level !== 0) {
+      setShowTutorialRules(false);
+    }
   }, [snapshot.level]);
 
   const overlayState = useMemo<OverlayState>(() => {
@@ -215,6 +219,7 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
 
   const handleStart = (): void => {
     setShowSlotPicker(false);
+    setShowTutorialRules(selectedLevel === 0);
     hasDraggedRef.current = false;
     lastDragAtMsRef.current = 0;
     void audioRef.current?.unlock();
@@ -223,6 +228,7 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
 
   const handleRetry = (): void => {
     setShowSlotPicker(false);
+    setShowTutorialRules(snapshot.level === 0);
     hasDraggedRef.current = false;
     lastDragAtMsRef.current = 0;
     void audioRef.current?.unlock();
@@ -231,6 +237,7 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
 
   const handleBack = (): void => {
     setShowSlotPicker(true);
+    setShowTutorialRules(true);
     hasDraggedRef.current = false;
     lastDragAtMsRef.current = 0;
   };
@@ -342,6 +349,26 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
           breakThresholdPx={snapshot.breakThresholdPx}
           playerSlot={snapshot.playerSlot}
         />
+
+        {snapshot.level === 0 && snapshot.status === "running" && showTutorialRules && (
+          <section className="overlay-card tutorial-rules-card" role="dialog" aria-label="新手教学规则">
+            <h3>新手教学规则</h3>
+            <p>核心目标: 守住你负责的板凳，不被离心力甩出道路中心。</p>
+            <ol className="tutorial-rule-list">
+              <li>全屏任意位置按住并左右拖动即可控制。</li>
+              <li>被甩向右边就向左拖，被甩向左边就向右拖。</li>
+              <li>保持连续小幅修正，不要停手太久。</li>
+              <li>跟着“拖回中线”箭头与风险提示来回正。</li>
+            </ol>
+            <button
+              type="button"
+              className="primary-button tutorial-rules-button"
+              onClick={() => setShowTutorialRules(false)}
+            >
+              我明白规则了
+            </button>
+          </section>
+        )}
 
         {showSlotPicker && isPortrait && (
           <div className="slot-picker-wrap">
