@@ -13,6 +13,8 @@ describe("HUDTopBar", () => {
         progress={0.42}
         risk={0.88}
         frenzy
+        difficultyTier="hardcore"
+        cameraDepthNorm={0.76}
         playerSlot={4}
         mapTheme="whitewall-alley"
         playerDistance={1200}
@@ -31,7 +33,9 @@ describe("HUDTopBar", () => {
     );
 
     expect(screen.getByText("负责 4号节位")).toBeInTheDocument();
+    expect(screen.getByText("HARDCORE")).toBeInTheDocument();
     expect(screen.getByTestId("mini-map")).toBeInTheDocument();
+    expect(screen.getAllByText("极危").length).toBeGreaterThan(0);
 
     const header = container.querySelector(".hud-top-bar");
     expect(header).toBeTruthy();

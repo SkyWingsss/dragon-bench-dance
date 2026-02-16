@@ -1,4 +1,11 @@
-import type { LandmarkKind, LevelId, MapThemeId, PlayerSlot } from "./types";
+import type {
+  DifficultyTier,
+  LandmarkKind,
+  LevelId,
+  MapThemeId,
+  PathGenerationProfile,
+  PlayerSlot,
+} from "./types";
 
 export const SEGMENT_COUNT = 18;
 export const SEGMENT_SPACING = 36;
@@ -12,20 +19,21 @@ export const PLAYER_SLOT_TO_SEGMENT_INDEX: Record<PlayerSlot, number> = {
 };
 
 export const PLAYER_SLOT_COEFFICIENT: Record<PlayerSlot, number> = {
-  1: 1.0,
-  2: 1.2,
-  3: 1.45,
-  4: 1.75,
-  5: 2.1,
+  1: 1.6,
+  2: 1.95,
+  3: 2.32,
+  4: 2.72,
+  5: 3.2,
 };
 
-export const GRAVITY_SCALE = 28;
-export const OFFSET_DAMPING = 9.5;
-export const CHAIN_PULL = 18;
-export const BASE_BREAK_THRESHOLD = 72;
-export const BREAK_HOLD_MS = 120;
-export const CONTROL_FORCE_GAIN = 260;
+export const GRAVITY_SCALE = 42;
+export const OFFSET_DAMPING = 3.8;
+export const CHAIN_PULL = 8.4;
+export const BASE_BREAK_THRESHOLD = 24;
+export const BREAK_HOLD_MS = 56;
+export const CONTROL_FORCE_GAIN = 210;
 export const MAX_ABS_OFFSET = 120;
+export const DIFFICULTY_TIER: DifficultyTier = "hardcore";
 
 export const FIXED_DT = 1 / 120;
 export const MAX_FRAME_DT = 1 / 30;
@@ -43,25 +51,61 @@ export const LEVEL_CONFIG: Record<
   }
 > = {
   1: {
-    baseSpeed: 340,
-    maxSpeed: 560,
-    accel: 24,
-    targetDistance: 2200,
+    baseSpeed: 460,
+    maxSpeed: 780,
+    accel: 44,
+    targetDistance: 3000,
     seed: 101,
   },
   2: {
-    baseSpeed: 420,
-    maxSpeed: 700,
-    accel: 30,
-    targetDistance: 3000,
+    baseSpeed: 580,
+    maxSpeed: 980,
+    accel: 56,
+    targetDistance: 3900,
     seed: 202,
   },
   3: {
-    baseSpeed: 500,
-    maxSpeed: 820,
-    accel: 38,
-    targetDistance: 3800,
+    baseSpeed: 700,
+    maxSpeed: 1180,
+    accel: 70,
+    targetDistance: 4800,
     seed: 303,
+  },
+};
+
+export const LEVEL_PATH_PROFILE: Record<LevelId, PathGenerationProfile> = {
+  1: {
+    maxCurvature: 0.0054,
+    straightProbability: 0.12,
+    gentleProbability: 0.4,
+    straightLengthRange: [4, 10],
+    gentleLengthRange: [4, 9],
+    sharpLengthRange: [3, 7],
+    gentleCurvatureRange: [-0.003, 0.003],
+    sharpCurvatureRange: [-0.0054, 0.0054],
+    smoothingFactor: 0.28,
+  },
+  2: {
+    maxCurvature: 0.0068,
+    straightProbability: 0.1,
+    gentleProbability: 0.36,
+    straightLengthRange: [4, 9],
+    gentleLengthRange: [4, 8],
+    sharpLengthRange: [3, 7],
+    gentleCurvatureRange: [-0.0036, 0.0036],
+    sharpCurvatureRange: [-0.0068, 0.0068],
+    smoothingFactor: 0.3,
+  },
+  3: {
+    maxCurvature: 0.0082,
+    straightProbability: 0.08,
+    gentleProbability: 0.32,
+    straightLengthRange: [3, 8],
+    gentleLengthRange: [3, 7],
+    sharpLengthRange: [2, 6],
+    gentleCurvatureRange: [-0.0044, 0.0044],
+    sharpCurvatureRange: [-0.0082, 0.0082],
+    smoothingFactor: 0.34,
   },
 };
 

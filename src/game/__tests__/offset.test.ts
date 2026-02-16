@@ -35,6 +35,7 @@ describe("offset stability", () => {
     expect(Number.isFinite(snapshot.risk)).toBe(true);
     expect(Number.isFinite(snapshot.cameraAnchor.x)).toBe(true);
     expect(Number.isFinite(snapshot.cameraAnchor.y)).toBe(true);
+    expect(Number.isFinite(snapshot.cameraForwardAngle)).toBe(true);
     expect(snapshot.segments).toHaveLength(18);
     expect(snapshot.roadSamples.length).toBeGreaterThan(20);
     expect(snapshot.minimapSamples.length).toBeGreaterThan(10);

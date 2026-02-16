@@ -259,6 +259,8 @@ export function DragonGame(props: DragonGameProps): JSX.Element {
           progress={progress}
           risk={snapshot.risk}
           frenzy={snapshot.frenzy}
+          difficultyTier={snapshot.difficultyTier}
+          cameraDepthNorm={snapshot.cameraDepthNorm}
           playerSlot={snapshot.playerSlot}
           mapTheme={snapshot.mapTheme}
           minimapSamples={snapshot.minimapSamples}

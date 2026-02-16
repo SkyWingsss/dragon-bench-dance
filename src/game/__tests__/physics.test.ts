@@ -15,6 +15,19 @@ function stepFrames(engine: DragonPhysicsEngine, frames: number, frameMs = 16.66
   }
 }
 
+function runUntilStop(engine: DragonPhysicsEngine, maxFrames = 5000, frameMs = 16.666): void {
+  let now = 0;
+  engine.tick(now);
+  for (let frame = 0; frame < maxFrames; frame += 1) {
+    now += frameMs;
+    engine.tick(now);
+    const status = engine.getSnapshot().status;
+    if (status !== "running") {
+      return;
+    }
+  }
+}
+
 describe("dragon physics core", () => {
   it("centrifugal force should increase with speed/curvature/slot coefficient", () => {
     const base = calcCentrifugalForce(300, 0.001, 1);
@@ -56,6 +69,7 @@ describe("dragon physics core", () => {
     expect(resumed.playerSlot).toBe(3);
     expect(Number.isFinite(resumed.cameraAnchor.x)).toBe(true);
     expect(Number.isFinite(resumed.cameraAnchor.y)).toBe(true);
+    expect(Number.isFinite(resumed.cameraForwardAngle)).toBe(true);
     expect(resumed.roadSamples.length).toBeGreaterThan(20);
     expect(resumed.minimapSamples.length).toBe(MAP_MINIMAP_SAMPLE_COUNT);
     expect(Number.isFinite(resumed.mapSeed)).toBe(true);
@@ -91,5 +105,25 @@ describe("dragon physics core", () => {
     expect(restarted.roadSamples.length).toBeGreaterThan(20);
     expect(restarted.minimapSamples.length).toBe(MAP_MINIMAP_SAMPLE_COUNT);
     expect(restarted.landmarks.length).toBeGreaterThan(0);
+  });
+
+  it("fails all levels without drag input in hardcore tuning", () => {
+    const scenarios: Array<{ level: 1 | 2 | 3; slot: 1 | 3 | 5 }> = [
+      { level: 1, slot: 1 },
+      { level: 2, slot: 3 },
+      { level: 3, slot: 5 },
+    ];
+
+    for (const scenario of scenarios) {
+      const engine = new DragonPhysicsEngine({
+        initialLevel: scenario.level,
+        defaultSlot: scenario.slot,
+      });
+      engine.startLevel(scenario.level, scenario.slot);
+      runUntilStop(engine, 5200);
+      const snapshot = engine.getSnapshot();
+      expect(snapshot.status).toBe("gameover");
+      expect(snapshot.distance).toBeLessThan(snapshot.targetDistance);
+    }
   });
 });

@@ -7,12 +7,14 @@ import {
   COMBO_SAFE_RISK,
   COMBO_TICK_SEC,
   CONTROL_FORCE_GAIN,
+  DIFFICULTY_TIER,
   FIXED_DT,
   FRENZY_COMBO,
   FRENZY_SAFE_RISK,
   GRAVITY_SCALE,
   LEVEL_CLEAR_DELAY_MS,
   LEVEL_CONFIG,
+  LEVEL_PATH_PROFILE,
   LEVEL_THEME,
   LEVEL_ORDER,
   MAP_LANDMARK_AHEAD,
@@ -65,6 +67,12 @@ const PATH_PRELOAD_DISTANCE = 14000;
 const ROAD_SAMPLE_STEP = 40;
 const ROAD_SAMPLES_BEHIND = 10;
 const ROAD_SAMPLES_AHEAD = 26;
+const MAP_ROUGHNESS_ATTEMPTS = 8;
+const LEVEL_ROUGHNESS_FLOOR: Record<LevelId, number> = {
+  1: 0.00175,
+  2: 0.0022,
+  3: 0.00275,
+};
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -101,10 +109,22 @@ function cloneLandmarks(landmarks: LandmarkSample[]): LandmarkSample[] {
   return landmarks.map((landmark) => ({ ...landmark }));
 }
 
+function estimatePathRoughness(pathTrack: PathTrack, sampleDistance: number): number {
+  let sum = 0;
+  let count = 0;
+  for (let distance = 180; distance <= sampleDistance; distance += 80) {
+    const sample = pathTrack.sampleAtDistance(distance);
+    sum += Math.abs(sample.curvature);
+    count += 1;
+  }
+  return count === 0 ? 0 : sum / count;
+}
+
 function createInitialSnapshot(level: LevelId): PhysicsSnapshot {
   const mapTheme = LEVEL_THEME[level];
   return {
     status: "ready",
+    difficultyTier: DIFFICULTY_TIER,
     level,
     score: 0,
     combo: 0,
@@ -120,6 +140,8 @@ function createInitialSnapshot(level: LevelId): PhysicsSnapshot {
     failureSpeed: 0,
     playerSlot: 1,
     playerSegmentIndex: PLAYER_SLOT_TO_SEGMENT_INDEX[1],
+    cameraForwardAngle: -Math.PI / 2,
+    cameraDepthNorm: 0.5,
     mapTheme,
     mapSeed: LEVEL_CONFIG[level].seed,
     cameraAnchor: { x: 0, y: 0 },
@@ -202,9 +224,10 @@ export class DragonPhysicsEngine {
     this.onRunEnd = options.onRunEnd;
     this.mapSeedNonce = 0;
     this.mapTheme = LEVEL_THEME[this.level];
-    this.mapSeed = this.generateMapSeed(this.level);
+    this.mapSeed = LEVEL_CONFIG[this.level].seed;
     this.villageMap = createVillageMap(this.mapSeed, this.mapTheme, PATH_PRELOAD_DISTANCE);
     this.pathTrack = this.villageMap.pathTrack;
+    this.rebuildVillageMap(this.level);
     this.snapshot = createInitialSnapshot(this.level);
     this.offsets = Array.from({ length: SEGMENT_COUNT }, () => 0);
     this.offsetVels = Array.from({ length: SEGMENT_COUNT }, () => 0);
@@ -312,8 +335,35 @@ export class DragonPhysicsEngine {
 
   private rebuildVillageMap(level: LevelId): void {
     this.mapTheme = LEVEL_THEME[level];
-    this.mapSeed = this.generateMapSeed(level);
-    this.villageMap = createVillageMap(this.mapSeed, this.mapTheme, PATH_PRELOAD_DISTANCE);
+    const roughnessFloor = LEVEL_ROUGHNESS_FLOOR[level];
+    let pickedMap: VillageMap | null = null;
+    let pickedSeed = this.generateMapSeed(level);
+
+    for (let attempt = 0; attempt < MAP_ROUGHNESS_ATTEMPTS; attempt += 1) {
+      const candidateSeed = attempt === 0 ? pickedSeed : this.generateMapSeed(level);
+      const candidateMap = createVillageMap(
+        candidateSeed,
+        this.mapTheme,
+        PATH_PRELOAD_DISTANCE,
+        LEVEL_PATH_PROFILE[level],
+      );
+      const sampleDistance = Math.max(2200, LEVEL_CONFIG[level].targetDistance * 0.8);
+      const roughness = estimatePathRoughness(candidateMap.pathTrack, sampleDistance);
+
+      if (roughness >= roughnessFloor || attempt === MAP_ROUGHNESS_ATTEMPTS - 1) {
+        pickedSeed = candidateSeed;
+        pickedMap = candidateMap;
+        break;
+      }
+    }
+
+    this.mapSeed = pickedSeed;
+    this.villageMap = pickedMap ?? createVillageMap(
+      this.mapSeed,
+      this.mapTheme,
+      PATH_PRELOAD_DISTANCE,
+      LEVEL_PATH_PROFILE[level],
+    );
     this.pathTrack = this.villageMap.pathTrack;
   }
 
@@ -410,10 +460,19 @@ export class DragonPhysicsEngine {
         GRAVITY_SCALE,
       );
       const outwardDirection = Math.sign(sample.curvature);
+      const pressureMultiplier =
+        index === playerIndex
+          ? 1.9 + (this.speed / Math.max(config.maxSpeed, 1)) * 0.45
+          : 1;
 
-      let acceleration = outwardDirection * centrifugalMagnitude;
+      let acceleration = outwardDirection * centrifugalMagnitude * pressureMultiplier;
 
       if (index === playerIndex) {
+        const turbulence =
+          Math.sin(this.distance * (0.017 + this.level * 0.0028) + index * 0.92) *
+          this.speed *
+          (0.18 + this.level * 0.03);
+        acceleration += turbulence;
         acceleration += this.inputForce;
       }
 
@@ -511,6 +570,8 @@ export class DragonPhysicsEngine {
     const risk = Math.abs(playerOffset) / breakThreshold;
     const playerSegment = segments[playerIndex];
     const playerDistance = this.distance - playerIndex * SEGMENT_SPACING;
+    const cameraLookAheadDistance = playerDistance + Math.max(120, this.speed * 0.32);
+    const cameraForwardSample = this.pathTrack.sampleAtDistance(cameraLookAheadDistance);
     const roadSamples: RoadFrameSample[] = [];
 
     for (let sampleIndex = -ROAD_SAMPLES_BEHIND; sampleIndex <= ROAD_SAMPLES_AHEAD; sampleIndex += 1) {
@@ -546,6 +607,7 @@ export class DragonPhysicsEngine {
 
     this.snapshot = {
       status: nextStatus,
+      difficultyTier: DIFFICULTY_TIER,
       level: this.level,
       score: Math.floor(this.score),
       combo: this.combo,
@@ -561,6 +623,8 @@ export class DragonPhysicsEngine {
       failureSpeed: this.failureSpeed,
       playerSlot: this.slot,
       playerSegmentIndex: playerIndex,
+      cameraForwardAngle: cameraForwardSample.angle,
+      cameraDepthNorm: clamp((this.speed - LEVEL_CONFIG[this.level].baseSpeed) / 320, 0.36, 1),
       mapTheme: this.mapTheme,
       mapSeed: this.mapSeed,
       cameraAnchor,

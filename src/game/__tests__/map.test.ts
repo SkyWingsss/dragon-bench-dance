@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  LEVEL_PATH_PROFILE,
   MAP_LANDMARK_AHEAD,
   MAP_LANDMARK_BEHIND,
   MAP_MINIMAP_AHEAD,
@@ -7,6 +8,20 @@ import {
   MAP_MINIMAP_SAMPLE_COUNT,
 } from "../Constants";
 import { buildMinimapSamples, collectNearbyLandmarks, createVillageMap } from "../map";
+
+function sampleMeanAbsCurvature(seed: number, level: 1 | 2 | 3): number {
+  const map = createVillageMap(seed, "whitewall-alley", 12000, LEVEL_PATH_PROFILE[level]);
+  let sum = 0;
+  let count = 0;
+
+  for (let distance = 300; distance <= 9800; distance += 80) {
+    const sample = map.pathTrack.sampleAtDistance(distance);
+    sum += Math.abs(sample.curvature);
+    count += 1;
+  }
+
+  return count === 0 ? 0 : sum / count;
+}
 
 describe("village map generation", () => {
   it("produces deterministic geometry for the same seed and theme", () => {
@@ -58,5 +73,14 @@ describe("village map generation", () => {
       expect(Number.isFinite(landmark.s)).toBe(true);
       expect(Number.isFinite(landmark.angle)).toBe(true);
     }
+  });
+
+  it("increases curvature intensity by level profile", () => {
+    const l1 = sampleMeanAbsCurvature(31337, 1);
+    const l2 = sampleMeanAbsCurvature(31337, 2);
+    const l3 = sampleMeanAbsCurvature(31337, 3);
+
+    expect(l2).toBeGreaterThan(l1 * 1.08);
+    expect(l3).toBeGreaterThan(l2 * 1.08);
   });
 });

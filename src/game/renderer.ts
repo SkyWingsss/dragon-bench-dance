@@ -7,6 +7,13 @@ import {
   VISUAL_WAVE_AMPLITUDE_PX,
   VISUAL_WAVE_FREQ_HZ,
 } from "./Constants";
+import {
+  DEFAULT_PROJECTION_CONFIG,
+  projectWorldAngleToScreenAngle,
+  projectWorldPoint25D,
+  type CameraFrame,
+  type ProjectionConfig,
+} from "./projection";
 import type { DragonSegmentFrame, LandmarkSample, PhysicsSnapshot, RoadFrameSample } from "./types";
 
 interface TrailPoint {
@@ -32,6 +39,22 @@ interface Point {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function normalizeAngle(angle: number): number {
+  let value = angle;
+  while (value > Math.PI) {
+    value -= Math.PI * 2;
+  }
+  while (value < -Math.PI) {
+    value += Math.PI * 2;
+  }
+  return value;
+}
+
+function lerpAngle(from: number, to: number, t: number): number {
+  const delta = normalizeAngle(to - from);
+  return from + delta * t;
 }
 
 function mixColor(start: [number, number, number], end: [number, number, number], t: number): string {
@@ -131,7 +154,18 @@ export function createDragonRenderer(canvas: HTMLCanvasElement): DragonRenderer 
 
   let cameraX = 0;
   let cameraY = 0;
+  let cameraForwardAngle = -Math.PI / 2;
   let cameraInitialized = false;
+
+  const projectionConfig: ProjectionConfig = {
+    ...DEFAULT_PROJECTION_CONFIG,
+    frontView: 980,
+    backView: 260,
+    nearYRatio: 0.9,
+    horizonYRatio: 0.24,
+    nearScale: 1.42,
+    farScale: 0.46,
+  };
 
   const trail: TrailPoint[] = [];
   const sparks: SparkParticle[] = [];
@@ -351,9 +385,9 @@ export function createDragonRenderer(canvas: HTMLCanvasElement): DragonRenderer 
       const sample = samples[i];
       const normal = getNormal(sample.angle);
       const tangent = getTangent(sample.angle);
-      const depth = clamp(i / samples.length, 0.15, 1);
-      const scale = 0.56 + depth * 0.7;
-      const alpha = 0.2 + depth * 0.5;
+      const nearFactor = clamp(1 - i / Math.max(1, samples.length - 1), 0.12, 1);
+      const scale = 0.56 + nearFactor * 0.72;
+      const alpha = 0.16 + nearFactor * 0.46;
 
       for (const side of [-1, 1]) {
         const visibility = hashNoise(sample.s * 0.017 + side * 9, 21);
@@ -480,12 +514,19 @@ export function createDragonRenderer(canvas: HTMLCanvasElement): DragonRenderer 
   const drawLandmarks = (
     landmarks: LandmarkSample[],
     worldToScreen: (x: number, y: number) => Point,
+    cameraFrame: CameraFrame,
     shakeX: number,
     shakeY: number,
   ): void => {
-    for (const landmark of landmarks) {
-      drawLandmark(landmark, worldToScreen, shakeX, shakeY);
-    }
+    landmarks
+      .map((landmark) => ({
+        landmark,
+        depth: projectWorldPoint25D(landmark.x, landmark.y, cameraFrame, projectionConfig).depth,
+      }))
+      .sort((a, b) => b.depth - a.depth)
+      .forEach((item) => {
+        drawLandmark(item.landmark, worldToScreen, shakeX, shakeY);
+      });
   };
 
   const updateTrailAndSparks = (
@@ -773,28 +814,42 @@ export function createDragonRenderer(canvas: HTMLCanvasElement): DragonRenderer 
       if (!cameraInitialized) {
         cameraX = snapshot.cameraAnchor.x;
         cameraY = snapshot.cameraAnchor.y;
+        cameraForwardAngle = snapshot.cameraForwardAngle;
         cameraInitialized = true;
       }
 
       const followLerp = clamp(dtSec * 8.5, 0.08, 0.42);
       cameraX += (snapshot.cameraAnchor.x - cameraX) * followLerp;
       cameraY += (snapshot.cameraAnchor.y - cameraY) * followLerp;
+      cameraForwardAngle = lerpAngle(
+        cameraForwardAngle,
+        snapshot.cameraForwardAngle,
+        clamp(dtSec * 6.2, 0.06, 0.28),
+      );
 
-      const baseShake = snapshot.frenzy ? 4 : clamp(snapshot.risk, 0, 1) * 3.8;
-      const shakeLimit = clamp(baseShake + (snapshot.status === "gameover" ? 2 : 0), 0, 6);
-      const shakeX = Math.sin(elapsedSec * 24) * shakeLimit;
-      const shakeY = Math.cos(elapsedSec * 19) * shakeLimit * 0.55;
+      const baseShake = snapshot.frenzy ? 2.4 : clamp(snapshot.risk, 0, 1) * 2.1;
+      const shakeLimit = clamp(baseShake + (snapshot.status === "gameover" ? 0.8 : 0), 0, 3.2);
+      const shakeX = Math.sin(elapsedSec * 20) * shakeLimit;
+      const shakeY = Math.cos(elapsedSec * 16) * shakeLimit * 0.5;
 
-      const worldToScreen = (x: number, y: number): Point => ({
-        x: x - cameraX + width * 0.5,
-        y: y - cameraY + height * 0.62,
-      });
+      const cameraFrame: CameraFrame = {
+        x: cameraX,
+        y: cameraY,
+        forwardAngle: cameraForwardAngle,
+        width,
+        height,
+      };
+
+      const worldToScreen = (x: number, y: number): Point => {
+        const p = projectWorldPoint25D(x, y, cameraFrame, projectionConfig);
+        return { x: p.x, y: p.y };
+      };
 
       renderGround(snapshot);
       drawVillageBackdrop(snapshot.roadSamples, worldToScreen, shakeX, shakeY);
       drawWallCorridor(snapshot.roadSamples, worldToScreen, shakeX, shakeY, snapshot);
       drawRoad(snapshot.roadSamples, worldToScreen, shakeX, shakeY, snapshot);
-      drawLandmarks(snapshot.landmarks, worldToScreen, shakeX, shakeY);
+      drawLandmarks(snapshot.landmarks, worldToScreen, cameraFrame, shakeX, shakeY);
 
       if (snapshot.segments.length === 0) {
         return;
@@ -810,15 +865,38 @@ export function createDragonRenderer(canvas: HTMLCanvasElement): DragonRenderer 
       updateTrailAndSparks(snapshot, playerScreen.x + shakeX, playerScreen.y + shakeY, dtSec);
       drawTrail();
 
-      for (let index = snapshot.segments.length - 1; index >= 0; index -= 1) {
-        const segment = snapshot.segments[index];
+      const projectedSegments = snapshot.segments.map((segment) => {
         const normal = getNormal(segment.angle);
         const wave = calcWaveOffset(segment);
-        const pos = worldToScreen(segment.x + normal.x * wave, segment.y + normal.y * wave);
-        drawSegment(
-          pos.x,
-          pos.y,
+        const worldX = segment.x + normal.x * wave;
+        const worldY = segment.y + normal.y * wave;
+        const projected = projectWorldPoint25D(worldX, worldY, cameraFrame, projectionConfig);
+        const screenAngle = projectWorldAngleToScreenAngle(
+          worldX,
+          worldY,
           segment.angle,
+          cameraFrame,
+          projectionConfig,
+        );
+        return {
+          segment,
+          x: projected.x,
+          y: projected.y,
+          depth: projected.depth,
+          forward: projected.forward,
+          screenAngle,
+        };
+      });
+
+      projectedSegments
+        .filter((item) => item.forward > -projectionConfig.backView - 100)
+        .sort((a, b) => b.depth - a.depth)
+        .forEach((item) => {
+          const { segment } = item;
+        drawSegment(
+          item.x,
+          item.y,
+          item.screenAngle,
           segment.risk,
           segment.role,
           segment.index,
@@ -827,7 +905,7 @@ export function createDragonRenderer(canvas: HTMLCanvasElement): DragonRenderer 
           shakeX,
           shakeY,
         );
-      }
+        });
 
       drawPlayerHalo(playerScreen.x, playerScreen.y, snapshot.risk, shakeX, shakeY);
       drawPlayerFlag(playerScreen.x, playerScreen.y, snapshot.playerSlot, snapshot.risk, shakeX, shakeY);
@@ -842,7 +920,7 @@ export function createDragonRenderer(canvas: HTMLCanvasElement): DragonRenderer 
         ctx.strokeStyle = `rgba(210, 40, 40, ${(0.48 * (1 - progress)).toFixed(3)})`;
         ctx.lineWidth = 16 * (1 - progress * 0.4);
         ctx.beginPath();
-        ctx.arc(width * 0.5, height * 0.62, radius, 0, Math.PI * 2);
+        ctx.arc(playerScreen.x + shakeX * 0.15, playerScreen.y + shakeY * 0.15, radius, 0, Math.PI * 2);
         ctx.stroke();
         ctx.restore();
       }

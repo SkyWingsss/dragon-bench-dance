@@ -1,6 +1,12 @@
 import { THEME_CONFIG } from "./Constants";
 import { createPathTrack, type PathTrack } from "./path";
-import type { LandmarkKind, LandmarkSample, MapThemeId, MinimapSample } from "./types";
+import type {
+  LandmarkKind,
+  LandmarkSample,
+  MapThemeId,
+  MinimapSample,
+  PathGenerationProfile,
+} from "./types";
 
 export interface VillageMap {
   seed: number;
@@ -57,8 +63,13 @@ function pickLandmarkKind(theme: MapThemeId, rng: () => number): LandmarkKind {
   return bias[3];
 }
 
-export function createVillageMap(seed: number, theme: MapThemeId, totalDistance = 14000): VillageMap {
-  const pathTrack = createPathTrack(seed, totalDistance);
+export function createVillageMap(
+  seed: number,
+  theme: MapThemeId,
+  totalDistance = 14000,
+  pathProfile?: PathGenerationProfile,
+): VillageMap {
+  const pathTrack = createPathTrack(seed, totalDistance, 24, pathProfile);
   const rng = mulberry32((seed ^ hashTheme(theme)) >>> 0);
   const landmarks: LandmarkSample[] = [];
 

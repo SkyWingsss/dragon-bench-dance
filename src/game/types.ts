@@ -1,6 +1,7 @@
 export type PlayerSlot = 1 | 2 | 3 | 4 | 5;
 export type LevelId = 1 | 2 | 3;
 export type MapThemeId = "water-town-entry" | "whitewall-alley" | "ancestral-street";
+export type DifficultyTier = "hardcore";
 
 export type GameStatus =
   | "ready"
@@ -58,8 +59,21 @@ export interface LandmarkSample {
   kind: LandmarkKind;
 }
 
+export interface PathGenerationProfile {
+  maxCurvature: number;
+  straightProbability: number;
+  gentleProbability: number;
+  straightLengthRange: readonly [number, number];
+  gentleLengthRange: readonly [number, number];
+  sharpLengthRange: readonly [number, number];
+  gentleCurvatureRange: readonly [number, number];
+  sharpCurvatureRange: readonly [number, number];
+  smoothingFactor: number;
+}
+
 export interface PhysicsSnapshot {
   status: GameStatus;
+  difficultyTier: DifficultyTier;
   level: LevelId;
   score: number;
   combo: number;
@@ -75,6 +89,8 @@ export interface PhysicsSnapshot {
   failureSpeed: number;
   playerSlot: PlayerSlot;
   playerSegmentIndex: number;
+  cameraForwardAngle: number;
+  cameraDepthNorm: number;
   mapTheme: MapThemeId;
   mapSeed: number;
   cameraAnchor: CameraAnchor;

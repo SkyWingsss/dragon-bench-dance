@@ -4,6 +4,14 @@
   color-scheme: only light;
   font-family: "Noto Sans SC", "PingFang SC", sans-serif;
   background: #f8eed8;
+  --ui-ink: #2c1d14;
+  --ui-card: rgba(56, 31, 20, 0.78);
+  --ui-card-top: rgba(68, 40, 25, 0.84);
+  --ui-border: rgba(247, 195, 124, 0.45);
+  --ui-gold: #e0a12e;
+  --ui-gold-soft: #ffd987;
+  --ui-danger: #d92e2e;
+  --ui-safe: #3a9d6b;
 }
 
 * {
@@ -23,6 +31,7 @@ body {
   touch-action: none;
   user-select: none;
   background: linear-gradient(180deg, #f8eed8 0%, #f2d9a6 100%);
+  color: #fef5e4;
 }
 
 .dragon-game-root {
@@ -57,8 +66,10 @@ body {
   align-items: center;
   gap: 10px;
   padding: calc(env(safe-area-inset-top) + 10px) 12px 10px;
-  border-bottom: 1px solid rgba(232, 183, 115, 0.3);
-  background: linear-gradient(180deg, rgba(43, 23, 15, 0.55), rgba(43, 23, 15, 0.42));
+  border-bottom: 1px solid rgba(232, 183, 115, 0.32);
+  border-top: 1px solid rgba(255, 221, 155, 0.2);
+  background: linear-gradient(180deg, rgba(43, 23, 15, 0.62), rgba(43, 23, 15, 0.34));
+  backdrop-filter: blur(4px) saturate(125%);
   color: #fdf2d8;
   animation: hudEnter 220ms ease-out;
   pointer-events: none;
@@ -88,6 +99,7 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .hud-mid {
@@ -115,6 +127,17 @@ body {
   background: rgba(51, 31, 21, 0.45);
 }
 
+.hud-difficulty-tag {
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #ffdfac;
+  border: 1px solid rgba(243, 137, 92, 0.42);
+  background: rgba(138, 40, 28, 0.35);
+}
+
 .hud-score {
   font-family: "ZCOOL QingKe HuangYou", "STKaiti", serif;
   font-size: 30px;
@@ -132,6 +155,26 @@ body {
   font-size: 11px;
   margin-bottom: 2px;
   color: #f8db9f;
+}
+
+.hud-risk-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  margin-bottom: 3px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  border: 1px solid rgba(255, 226, 167, 0.35);
+  color: #ffe6bf;
+  background: rgba(77, 44, 30, 0.62);
+}
+
+.hud-risk-chip.hot {
+  border-color: rgba(223, 67, 53, 0.65);
+  color: #ffd4cc;
+  background: rgba(150, 34, 27, 0.56);
 }
 
 .hud-combo {
@@ -165,6 +208,16 @@ body {
   overflow: hidden;
 }
 
+.hud-subline {
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 10px;
+  color: rgba(248, 223, 176, 0.9);
+}
+
 .hud-progress-fill {
   height: 100%;
   border-radius: 99px;
@@ -177,9 +230,10 @@ body {
   width: 78px;
   height: 78px;
   border-radius: 12px;
-  border: 1px solid rgba(244, 215, 157, 0.32);
+  border: 1px solid rgba(244, 215, 157, 0.38);
   background: rgba(37, 22, 14, 0.42);
   overflow: hidden;
+  box-shadow: inset 0 0 0 1px rgba(255, 227, 176, 0.12);
 }
 
 .mini-map-svg {
@@ -245,18 +299,21 @@ body {
   margin: 0;
   font-size: 12px;
   letter-spacing: 0.03em;
-  color: rgba(255, 242, 214, 0.86);
+  color: rgba(255, 242, 214, 0.88);
   text-shadow: 0 2px 4px rgba(43, 23, 15, 0.45);
+  border-radius: 999px;
+  padding: 4px 10px;
+  background: rgba(45, 26, 17, 0.25);
 }
 
 .overlay-card {
   width: min(86vw, 380px);
   border-radius: 16px;
-  border: 1px solid rgba(246, 191, 116, 0.45);
-  background: linear-gradient(180deg, rgba(64, 35, 21, 0.88), rgba(54, 29, 19, 0.92));
+  border: 1px solid rgba(246, 191, 116, 0.48);
+  background: linear-gradient(180deg, rgba(72, 40, 24, 0.88), rgba(52, 27, 18, 0.93));
   color: #fff0cd;
   padding: 16px 16px 18px;
-  box-shadow: 0 10px 16px rgba(66, 39, 24, 0.2);
+  box-shadow: 0 12px 20px rgba(66, 39, 24, 0.26), inset 0 1px 0 rgba(255, 225, 169, 0.18);
   backdrop-filter: saturate(130%);
 }
 
@@ -283,7 +340,7 @@ body {
   justify-items: center;
   gap: 12px;
   padding: 88px 12px 140px;
-  background: radial-gradient(circle at 50% 20%, rgba(255, 196, 98, 0.2), rgba(0, 0, 0, 0.36));
+  background: radial-gradient(circle at 50% 20%, rgba(255, 196, 98, 0.22), rgba(0, 0, 0, 0.42));
 }
 
 .level-picker {
@@ -310,6 +367,11 @@ body {
   padding: 9px 8px;
   font-size: 14px;
   font-weight: 700;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.slot-button:active {
+  transform: scale(0.98);
 }
 
 .slot-button.active {
@@ -325,6 +387,13 @@ body {
   padding: 11px 14px;
   font-size: 14px;
   font-weight: 800;
+  transition: transform 120ms ease, filter 120ms ease;
+}
+
+.primary-button:active,
+.ghost-button:active {
+  transform: scale(0.985);
+  filter: brightness(0.96);
 }
 
 .primary-button {
@@ -386,6 +455,16 @@ body {
   font-size: 14px;
 }
 
+.failure-reason {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(230, 130, 96, 0.38);
+  background: rgba(125, 36, 31, 0.2);
+  color: #ffd8c6;
+  font-size: 13px;
+}
+
 .level-clear-toast {
   position: absolute;
   z-index: 24;
@@ -412,4 +491,32 @@ body {
 
 .rotate-card {
   text-align: center;
+}
+
+@media (max-width: 520px) {
+  .hud-top-bar {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "left mid"
+      "left right";
+    gap: 8px;
+    padding: calc(env(safe-area-inset-top) + 9px) 10px 9px;
+  }
+
+  .hud-left {
+    grid-area: left;
+  }
+
+  .hud-mid {
+    grid-area: mid;
+    justify-self: end;
+  }
+
+  .hud-right {
+    grid-area: right;
+  }
+
+  .hud-score {
+    font-size: 26px;
+  }
 }
